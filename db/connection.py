@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import create_async_engine,AsyncEngine
 from sqlalchemy.exc import SQLAlchemyError
-import os
+import os,sys
 import logging
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager

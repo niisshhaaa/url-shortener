@@ -32,23 +32,22 @@ class URL_SHORTENER(Base):
     #     visit_cnt:{self.visit_cnt},last_accessed_at:{self.last_accessed_at},
     #     user_id:{self.user_id},deleted_at:{self.deleted_at},expiry_date:{self.expiry_date})"""
 
-    # def to_dict(self):
-    #     """
-    #     to ensure response is serialised to json if not done already
-    #     """
+    def to_dict(self):
+        """
+        to ensure response is serialised to json if not done already
+        """
    
-    #     return {
-    #         "id" : self.id,
-    #         "original_url":self.original_url,
-    #         "short_code":self.short_code,
-    #         "created_at":self.created_at,
-    #         "visit_cnt":self.visit_cnt,
-    #         "last_accessed_at":self.last_accessed_at,
-    #         "user_id":self.user_id,
-    #         "deleted_at":self.deleted_at,
-    #         "expiry_date":self.expiry_date,
-    #         "password":self.password
-    #     }
+        return {
+            "id" : self.id,
+            "original_url":self.original_url,
+            "short_code":self.short_code,
+            "created_at":self.created_at,
+            "visit_cnt":self.visit_cnt,
+            "last_accessed_at":self.last_accessed_at,
+            "user_id":self.user_id,
+            "deleted_at":self.deleted_at,
+            "expiry_date":self.expiry_date
+        }
 
 class Users(Base):
     __tablename__="userss"
@@ -56,7 +55,7 @@ class Users(Base):
     email=Column(String(40),nullable=False,unique=True)
     name=Column(String(20),nullable=True)
     api_key=Column(String(100),nullable=False,unique=True)
-    password_hash=Column(String(255),nullable=True)
+    password_hash=Column(String(255),nullable=True)  #kept nullable true as using api keys for authentication,it was just to try jwt auth
     user_inactive=Column(TIMESTAMP,nullable=True)
     created_at=Column(TIMESTAMP,default=datetime.now)
     updated_at=Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)

@@ -236,9 +236,9 @@ async def real_time_analytics(db_session:AsyncSession=Depends(get_session), limi
 #A race condition occurs when two or more processes or threads attempt to perform an operation on shared resources simultaneously in such a way 
 # that the outcome depends on the timing or order of execution.
 # 1) Same payload at same time ( more than 1 user requests short code for same url at same time)
-# one requests succeeds , other requests will cause integrity error as short code should be unique, but as the database does not have user specificness
-#so return the same short code. 
-# 2) Different payload with same hash codes which don't already exist, added the integrity error checks to handle that .
+# one requests succeeds , other requests will cause integrity error as short code should be unique, but for cases with no user specificness
+#return the same short code. 
+# 2) Different payload with same hash codes which don't already exist .
 
 
     

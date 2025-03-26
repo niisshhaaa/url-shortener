@@ -1,3 +1,8 @@
+import sys,asyncio
+
+if sys.platform=='win32':
+          asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession ,async_sessionmaker
 import os
 import logging
@@ -33,8 +38,6 @@ async def app_lifespan(app:FastAPI):
      # async with async_engine.begin() as conn:
      #      await conn.run_sync(Base.metadata.create_all)
 
-          
-     
      yield
      
      #resource disposal
