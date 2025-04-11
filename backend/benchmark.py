@@ -8,7 +8,7 @@ invalid_key="invalid_key"
 
 
 BASE_URL="http://127.0.0.1:8000"
-valid_code="sqalconsre"
+valid_code="something"
 code_to_del=""
 post_url_payload="https://www.youtube.com/watch?v=mHfn_7ym6to&list=PLl8XY7QVSa4aUyZAtL2Hlf_mx3LaSix9B&index=9"
 
@@ -84,7 +84,7 @@ async def benchmark(full_endpoint:dict,iterations:int=100,warmup:int=5):
             end_time=time.perf_counter()
             process_time=end_time-start_time
             res_times.append(process_time)
-            print(f"Iteration {i+1}: {process_time:.4f} s")
+            # print(f"Iteration {i+1}: {process_time:.4f} s")
         
     stats_calc(res_times,url,iterations)
     
@@ -97,12 +97,12 @@ async def main():
     
     choice=input("Enter the endpoint key to benchmark: ").strip()
     if choice not in endpoints:
-        print(f"Endpoint '{choice}' not found. Please try with valid options")
+        print(f"Endpoint '{choice}' not found. Please try with valid key present before :")
 
     endpoint_to_test = endpoints[choice]
     
     print(f"Benchmarking endpoint '{choice}' with URL: {endpoint_to_test['url']}")
-    await benchmark(endpoint_to_test,iterations=100)
+    await benchmark(endpoint_to_test,iterations=500)
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -117,3 +117,33 @@ Minimum response time: 0.0103 seconds
 Maximum response time: 0.4050 seconds
 90th percentile response time: 0.0143 seconds
 """
+# get endpoint average response time
+# without update 9ms
+# with update 31 ms 
+
+# Requests run: 500
+
+# full read and normal update 
+# Average response time: 0.0387 seconds
+# Median response time: 0.0282 seconds
+# Minimum response time: 0.0172 seconds
+# Maximum response time: 0.3751 seconds
+# 90th percentile response time: 0.0415 seconds
+
+# reqd read and normal update 
+# Average response time: 0.0351 seconds
+# Median response time: 0.0279 seconds
+# Minimum response time: 0.0159 seconds
+# Maximum response time: 0.3328 seconds
+# 90th percentile response time: 0.0395 seconds
+
+# ORM full load and required fields load almost very same and kinda inconclusive 
+# Average response time: 0.0303 seconds
+# Median response time: 0.0275 seconds
+# Minimum response time: 0.0158 seconds
+# Maximum response time: 0.3501 seconds
+# 90th percentile response time: 0.0380 seconds
+
+
+
+

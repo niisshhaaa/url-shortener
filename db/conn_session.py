@@ -1,8 +1,5 @@
 import sys,asyncio
 
-if sys.platform=='win32':
-          asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession ,async_sessionmaker
 import os
 import logging
@@ -22,10 +19,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # DATABASE_URL format : "postgresql+asyncpg://user:password@localhost/URL_SHORTENER"
 
 
-@asynccontextmanager
+@asynccontextmanager  
 async def app_lifespan(app:FastAPI):
      #Create async database engine
-     async_engine=create_async_engine(DATABASE_URL,future=True, echo=True)
+     async_engine=create_async_engine(DATABASE_URL,future=True, echo=True,
+                                      pool_size=20,max_overflow=30)
      #create an async session factory using engine for connection
      async_session=async_sessionmaker(bind=async_engine,class_=AsyncSession,expire_on_commit=False)
      

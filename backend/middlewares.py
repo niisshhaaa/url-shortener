@@ -13,7 +13,7 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
         response=await call_next(request)
         end_time=time.perf_counter()
         process_time=end_time-start_time
-        message=f'{request.client.host}:{request.client.port} - "{request.method}{request.url.path}" {response.status_code} took {process_time:.4f} seconds'
+        message=f'{request.client.host}:{request.client.port} - "{request.method}{request.url.path}" {response.status_code} took {process_time} '
         # logger.info(f"Request{request.url.path} took ")
         print(message)
         return response

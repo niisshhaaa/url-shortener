@@ -1,3 +1,9 @@
+import hashlib
+import random
+import socket
+import string
+from urllib.parse import urlparse
+from fastapi import HTTPException
 from passlib.context import CryptContext
 import secrets,os,jwt,uuid,logging
 from dotenv import load_dotenv
@@ -57,3 +63,61 @@ def decode_token(token:str):
     except jwt.PyJWTError as e:
         logging.exception(e)
         return None
+    
+
+def is_valid_url(url: str):
+    """
+    Validate the URL format and check if it's secure and resolved to a valid domain.
+    """
+    parsed = urlparse(url)
+    # "scheme://netloc/path;parameters?query#fragment"
+
+    try:
+        # Check for valid scheme and netloc
+        if parsed.scheme not in ["http", "https"] or not bool(parsed.netloc):
+            return False
+        hostname = parsed.netloc.split(":")[0]
+
+        #check if hostname resolves to an ip address (i.e. domain exists)
+        hostip=socket.gethostbyname(hostname)
+
+        return hostip and True
+    
+    except (ValueError,socket.gaierror) :
+        return False
+    
+def random_code(min_length=5,max_length=8):
+    #Hash the url with the time entropy for randomness for same url 
+    chars=string.ascii_letters + string.digits
+    return "".join(random.choices(chars,k=2))
+
+
+def hash_code_with_entropy(url,min_length=5,max_length=8):
+    #Hash the url with the time entropy for randomness for same url 
+    full_hash_rand=hashlib.sha256(f"{url}{datetime.now()}".encode()).hexdigest()
+    length=random.randint(min_length,max_length)
+    short_hash=full_hash_rand[:length+1]
+    return short_hash
+
+def hash_code_without_entropy(url):
+    full_hash_rand=hashlib.sha256(url.encode()).hexdigest()
+    short_hash=full_hash_rand[:7]
+    return short_hash
+
+def check_is_date_valid(date):
+        try:
+            date=date
+            print(date,date.date(),date.now().date(),datetime.now().date())
+            print("now date",datetime.now().date())
+            if isinstance(date,str):       # date from payload
+                date=datetime.fromisoformat(date)
+            
+            if isinstance(date,datetime):  # from query parameter of update request
+                date=date.date()
+            
+            if date>=datetime.now().date():
+                return date
+            else:
+                raise HTTPException(status_code=400,detail="Dates before today not allowed")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD ")
