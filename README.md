@@ -199,25 +199,6 @@ Every api request needs to connect to DB ,total available connections are 5+10 b
 Analogy -- Burger menu can take total of 15 requests at a time  for burgers . So until those requests are completed new requests will keep on waiting for their order to be accepted . If no empty slots for new requests until timeout ,new requests will be failed.
 with high concurrent requests the pool limit reached because completing requests takes some time and for low concurrency the new requests arrived after some requests got completed so there was space in conn pool for new connections.
 
-async with anyio.create_task_group() as task_group:
-  |   File "/home/.../venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
-  |     raise BaseExceptionGroup(
-  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
-  
- |     raw_response = await run_endpoint_function(
- |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- |   File "/home/.../venv/lib/python3.12/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
- |     return await dependant.call(**values)
- |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- |   File "/home/.../backend/main_new.py", line 28, in shorten_url
- |     get_user_id_reqst=await check_api_key(api_key,db_session)
-
- File "/home/.../venv/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 713, in checkout
-    |     rec = pool._do_get()
-    |           ^^^^^^^^^^^^^^
-    |   File "/home/.../venv/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 168, in _do_get
-    |     raise exc.TimeoutError(
-    | sqlalchemy.exc.TimeoutError: QueuePool limit of size 5 overflow 10 reached, connection timed out, timeout 30.00 (Background on this error at: https://sqlalche.me/e/20/3o7r)
 
 > Increasing db connections limit to 20+30 doesn't decrease failure rate by any significant percentage . So we can try to improve API response times .
 
