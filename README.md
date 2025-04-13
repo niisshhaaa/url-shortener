@@ -144,6 +144,8 @@ Deploy API on Render
 
 > Connect db by creating a new database connection(New -> PostgreSQL -> specify details -> select same region as API service so connection will be faster)
 
+> To create schema(tables,relations,contraints...) and autodeploy schema migrations with alembic update start command to -- alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker src:app
+
 Let's add some analytics for urls as per new requests
 >1) Real time analytics for latest 10 urls
 >2) Top 10 short urls with most visit counts
