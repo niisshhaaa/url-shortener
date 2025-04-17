@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Header,HTTPException,Depends
+from fastapi import FastAPI,Header,HTTPException,Depends,APIRouter
 from datetime import datetime
 from typing import Union,Optional,List
 from sqlalchemy import select,delete,func,update
@@ -7,35 +7,32 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.orm import sessionmaker
 from backend.db_utils import get_idntier_api_key
-from backend.main import del_scode
-from backend.services import check_api_key, get_id_api_key,get_userid_scode, load_url, process_url, url_to_update
+from backend.services import check_api_key, get_id_api_key,get_userid_scode, load_url, process_url, url_to_update,del_scode
 from db.schema import URL_SHORTENER,Users
 import asyncio
 from .utils import check_is_date_valid
-from .dependencies import AccessTokenBearer,RefreshTokenBearer,get_session,get_session_factory,app
+from .dependencies import AccessTokenBearer,RefreshTokenBearer,get_session,get_session_factory
 from .middlewares import RequestTimingMiddleware
 from .models import LongUrl,BatchUrls,UserCreateModel,LoginInput,Token
 
 load_dotenv()
 
-app.add_middleware(RequestTimingMiddleware)
+urls_router=APIRouter()
 
 accessTokenBearer=AccessTokenBearer()
 refreshTokenBearer=RefreshTokenBearer()
 
-@app.post("/shorten")
+@urls_router.post("/shorten")
 async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session=Depends(get_session)):
     get_user_id_reqst=await check_api_key(api_key,db_session)
    
     
     res=await process_url(payload,db_session,get_user_id_reqst) 
-    if res["error"]:
-        raise res["error"]
     return res
  
 # for batch endpoint if separate from single post endpoint don't allow single url payload,
 # here it is just for example if a single endpoint were to handle both single url and batch url payload.
-@app.post("/shorten/batch")
+@urls_router.post("/shorten/batch")
 async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(...),db_session=Depends(get_session_factory)): 
     async with db_session() as session:
         get_user_id_reqst=await check_api_key(api_key,session)
@@ -61,7 +58,7 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
         raise HTTPException(status_code=422, detail="Unprocessable entity,invalid input format")
     
 
-@app.get("/redirect")
+@urls_router.get("/redirect")
 async def redirect_url(short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
     url=await load_url(short_code,db_session)
    
@@ -95,7 +92,7 @@ async def redirect_url(short_code:str,password:Optional[str]=None,db_session:Asy
     print("url",url)
     return RedirectResponse(url=url.original_url,status_code=307)
 
-@app.patch("/shorten/{short_code}")
+@urls_router.patch("/shorten/{short_code}")
 async def update_code(
     short_code:str,expiry_date:Optional[datetime],password:Optional[str]=None,api_key:str=Header(...),
     db_session:AsyncSession=Depends(get_session)):
@@ -131,7 +128,7 @@ async def update_code(
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":password,"message":"updated short code!"}
 
 
-@app.get("/user/urls")
+@urls_router.get("/user/urls")
 async def get_all_urls_for_user(api_key:str=Header(...),db_session:AsyncSession=Depends(get_session),page:int=1,limit:int=10):
     get_user=await get_idntier_api_key(api_key,db_session)
     get_user_id=get_user.id if get_user else None
@@ -149,7 +146,7 @@ async def get_all_urls_for_user(api_key:str=Header(...),db_session:AsyncSession=
     # return all_urls    
     
 
-@app.delete("/shorten/{short_code}")
+@urls_router.delete("/shorten/{short_code}")
 async def remove_scode(short_code:str,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
 
     api_key_id=await get_id_api_key(api_key,db_session)
@@ -196,9 +193,6 @@ async def get_real_time_analytics(session,limit,offset):
 #         raise HTTPException(status_code=404, detail="Error in getting real time analytics")
 #     # return [row.to_dict() for row in data]
 #     return data
-
-
-
 
 
 

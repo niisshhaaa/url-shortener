@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi import HTTPException,Depends
-import hashlib
+import hashlib,socket
 from datetime import datetime
 from typing import Union,AsyncGenerator
 from sqlalchemy import select,delete,func,update
@@ -9,14 +9,12 @@ from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
-from db.conn_session import create_app
 from db.schema import URL_SHORTENER
 from urllib.parse import urlparse
-import socket
+from db.conn_session import app
 
 load_dotenv()
 
-app = create_app()
 
 class LongUrl(BaseModel):
     url_link:str

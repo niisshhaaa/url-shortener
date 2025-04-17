@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 valid_api_key=os.getenv("valid_api_test_key")
 valid_api_key2=os.getenv("valid_api_key_2")
+valid_api_key3=os.getenv("valid_api_key_3")
 invalid_key="invalid_key"
 
 
@@ -11,6 +12,8 @@ BASE_URL="http://127.0.0.1:8000"
 valid_code="something"
 code_to_del=""
 post_url_payload="https://www.youtube.com/watch?v=mHfn_7ym6to&list=PLl8XY7QVSa4aUyZAtL2Hlf_mx3LaSix9B&index=9"
+no_slug_link="https://leetcode.com/studyplan/top-interview-150/"
+new_post="https://self-chz.sentry.io/profiling/?project=4509156804919296&statsPeriod=14d"
 
 endpoints = {
     "redirect": {
@@ -28,8 +31,17 @@ endpoints = {
         "url": f"{BASE_URL}/shorten",
         "headers": {"api-key": valid_api_key2},
         "json": {
-            "url_link": post_url_payload,
-            "custom_slug": "undiscreterv",
+            "url_link": new_post,
+            "custom_slug": "prifile",
+            "exp_date": None
+        },
+    },
+    "shorten_noslug": {
+        "method": "POST",
+        "url": f"{BASE_URL}/shorten",
+        "headers": {"api-key": valid_api_key2},
+        "json": {
+            "url_link": no_slug_link,
             "exp_date": None
         },
     },
@@ -102,7 +114,7 @@ async def main():
     endpoint_to_test = endpoints[choice]
     
     print(f"Benchmarking endpoint '{choice}' with URL: {endpoint_to_test['url']}")
-    await benchmark(endpoint_to_test,iterations=500)
+    await benchmark(endpoint_to_test,iterations=100)
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -143,6 +155,22 @@ Maximum response time: 0.4050 seconds
 # Minimum response time: 0.0158 seconds
 # Maximum response time: 0.3501 seconds
 # 90th percentile response time: 0.0380 seconds
+
+# Benchmark Results for http://127.0.0.1:8000/shorten:
+# Requests run: 500
+# Average response time: 0.0668 seconds
+# Median response time: 0.0578 seconds
+# Minimum response time: 0.0186 seconds
+# Maximum response time: 0.3193 seconds
+# 90th percentile response time: 0.0861 seconds
+
+# Benchmark Results for http://127.0.0.1:8000/redirect?short_code=something:
+# Requests run: 500
+# Average response time: 0.0547 seconds
+# Median response time: 0.0314 seconds
+# Minimum response time: 0.0246 seconds
+# Maximum response time: 0.4079 seconds
+# 90th percentile response time: 0.0818 seconds
 
 
 

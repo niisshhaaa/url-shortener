@@ -4,18 +4,16 @@ from .utils import decode_token
 from abc import ABC,abstractmethod
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import  AsyncSession
-from db.conn_session import create_app
+from db.conn_session import async_session
 
-app = create_app()
+
 
 #Scope of this will be to a specific route for a single specific request ,new session for each concurrent request when passed as dependency and using proper context scope.
 async def get_session() -> AsyncGenerator[AsyncSession,None]:
-    async_session=app.state.async_session
     async with async_session() as session:  # using with context manager opens the session on first execute and closes the async session (sesion) instance at the end of with block
         yield session
 
 async def get_session_factory():
-    async_session=app.state.async_session
     yield async_session
 
 class TokenBearer(ABC,HTTPBearer):

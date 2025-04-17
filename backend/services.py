@@ -6,11 +6,11 @@ import hashlib,random,socket,string
 from typing import Optional
 from urllib.parse import urlparse
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import load_only
 
 
-from backend.main import is_valid_url
+from backend.utils import is_valid_url
 from backend.utils import check_is_date_valid, hash_code_with_entropy, hash_code_without_entropy, random_code
 from db.schema import URL_SHORTENER, Users
 
@@ -151,7 +151,7 @@ async def process_url(payload,session,get_user_id_reqst):
                     newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,
                                              short_code=short_code,have_slug=True,exp_date=valid_date,password=payload.password)
                     print('newinsert',newinsert)
-                    response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password,"error":None}
+                    response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
                 else:
                     hash_code=hash_code_without_entropy(payload.url_link)
                     code_exists=await check_code_exists(session,hash_code)
@@ -161,21 +161,22 @@ async def process_url(payload,session,get_user_id_reqst):
                     if code_exists_scode:
                         if code_exists.original_url==payload.url_link and code_exists.user_id==user_id_reqst:
                             short_code=hash_code
+                            response={"original_url":code_exists.original_url,"short_url":short_code}
                         else:
                             short_code=await retry_ifnot_unq(hash_code,payload.url_link,session)
 
-                        newinsert= await save_url(session,user_id_reqst,original_url=payload.url_link,
+                            newinsert= await save_url(session,user_id_reqst,original_url=payload.url_link,
                                                   short_code=short_code,have_slug=False,
                                                   exp_date=valid_date,password=payload.password)
-                        print('newinsert',newinsert)
-                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password,"error":None}
+                            print('newinsert',newinsert)
+                            response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
                         
                     else:
                         short_code=hash_code
                         newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,
                                                  short_code=short_code,have_slug=False,exp_date=valid_date,password=payload.password)
                         print('newinsert',newinsert)
-                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password,"error":None}
+                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
                 
                 return response
 
@@ -215,5 +216,7 @@ async def get_userid_scode(scode,session):
     print("scode res",result)
     return result.first() if result else None # will return None in case when short code does not exist , (None,) if user id is null while only retrieving user_id
 
-
+async def del_scode(session,short_code):
+    await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
+    await session.commit()
     
