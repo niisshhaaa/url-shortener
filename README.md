@@ -202,8 +202,10 @@ Analogy -- Burger menu can take total of 15 requests at a time  for burgers . So
 with high concurrent requests the pool limit reached because completing requests takes some time and for low concurrency the new requests arrived after some requests got completed so there was space in conn pool for new connections.
 
 
-> Increasing db connections limit to 20+30 doesn't decrease failure rate by any significant percentage . So we can try to improve API response times .
+> Increasing db connections limit to 20+30 doesn't decrease failure rate by any significant percentage . So we can try to improve API response times even further .
 
+
+#### Prometheus + Grafana Monitoring + Sentry Error tracking and Profiling
 
 ![Screenshot from 2025-04-17 15-48-49](https://github.com/user-attachments/assets/c9b0d094-dcc3-4a65-bb3a-ebffbdf1ba3e)
 the lowest graph curves are for average response times(mean/average latency over 5 min window)
