@@ -1,14 +1,14 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession ,async_sessionmaker
 import os
 import logging
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from contextlib import asynccontextmanager 
 from db.schema import Base
 
 
 
-load_dotenv()
+load_dotenv(find_dotenv(raise_error_if_not_found=True), override=True)
 
 logger = logging.getLogger(__name__)
 

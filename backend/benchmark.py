@@ -149,28 +149,8 @@ Maximum response time: 0.4050 seconds
 # Maximum response time: 0.3328 seconds
 # 90th percentile response time: 0.0395 seconds
 
-# ORM full load and required fields load almost very same and kinda inconclusive 
-# Average response time: 0.0303 seconds
-# Median response time: 0.0275 seconds
-# Minimum response time: 0.0158 seconds
-# Maximum response time: 0.3501 seconds
-# 90th percentile response time: 0.0380 seconds
 
-# Benchmark Results for http://127.0.0.1:8000/shorten:
-# Requests run: 500
-# Average response time: 0.0668 seconds
-# Median response time: 0.0578 seconds
-# Minimum response time: 0.0186 seconds
-# Maximum response time: 0.3193 seconds
-# 90th percentile response time: 0.0861 seconds
 
-# Benchmark Results for http://127.0.0.1:8000/redirect?short_code=something:
-# Requests run: 500
-# Average response time: 0.0547 seconds
-# Median response time: 0.0314 seconds
-# Minimum response time: 0.0246 seconds
-# Maximum response time: 0.4079 seconds
-# 90th percentile response time: 0.0818 seconds
 
 
 

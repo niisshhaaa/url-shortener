@@ -1,9 +1,12 @@
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi.middleware import SlowAPIMiddleware
 from backend.middlewares import RequestTimingMiddleware
 from db.conn_session import async_engine
 from backend.main_new import urls_router
 from error_tracking.routes import sentry_router
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
+from backend.rate_limit_utils import limiter
+from global_exceptions.rate_limit_exception import register_rate_limit_err_handler
 
 from contextlib import asynccontextmanager
 
@@ -30,6 +33,12 @@ async def app_lifespan(app:FastAPI):
 init_sentry()
 
 app= FastAPI(lifespan=app_lifespan)
+
+# app.state.limiter = limiter
+
+
+# app.add_middleware(SlowAPIMiddleware)
+# register_rate_limit_err_handler(app)
 
 app.include_router(urls_router)
 app.include_router(sentry_router)

@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = { 
     stages: [
-        { duration: '30s', target:800 },   
+        { duration: '10s', target:120 },   
     ],
     thresholds: {
         http_req_duration: ['p(95)<500'], // 95% of requests should complete within 500ms
@@ -34,16 +34,16 @@ export default function(){
     // const uniqueId = __VU; // __VU is the unique ID of the current virtual user
     // const TEST_URL = `${TEST_URLL}/${uniqueId}`; 
 
-    let postPayload = JSON.stringify({url_link:test_url}) //Javacript value to JSON string
-    let postHeaders = {'Content-Type':'application/json',
-        'api-key':'NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs'} ;
-    let postres = http.post(`${BASE_URL}/shorten`,postPayload,{headers:postHeaders})
-    // console.log(postres.json("short_url"))
-    check(postres,{
-        "response code was 200": (postres)=>postres.status==200,
-        "short_url is returned": (postres)=>postres.json("short_url") !==undefined && postres.json("short_url") !==null 
-        }
-    )
+    // let postPayload = JSON.stringify({url_link:test_url}) //Javacript value to JSON string
+    // let postHeaders = {'Content-Type':'application/json',
+    //     'api-key':'NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs'} ;
+    // let postres = http.post(`${BASE_URL}/shorten`,postPayload,{headers:postHeaders})
+    // // console.log(postres.json("short_url"))
+    // check(postres,{
+    //     "response code was 200": (postres)=>postres.status==200,
+    //     "short_url is returned": (postres)=>postres.json("short_url") !==undefined && postres.json("short_url") !==null 
+    //     }
+    // )
 
     // || console.error("Request failed or database conn not available");
 
@@ -53,11 +53,11 @@ export default function(){
 
     // let short_code="something" 
 
-    // let getres=http.get(`${BASE_URL}/redirect?short_code=something`,{redirects:0});
-    // check(getres,{
-    //     "response code was 307": (getres)=>getres.status===307,
-    //     "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
-    // });
+    let getres=http.get(`${BASE_URL}/redirect?short_code=something`,{redirects:0});
+    check(getres,{
+        "response code was 307": (getres)=>getres.status===307,
+        "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
+    });
 
     sleep(1);
 

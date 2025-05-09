@@ -1,9 +1,9 @@
-from fastapi import FastAPI,Header,HTTPException,Depends,APIRouter
+from fastapi import FastAPI,Header,HTTPException,Depends,APIRouter, Request
 from datetime import datetime
 from typing import Union,Optional,List
 from sqlalchemy import select,delete,func,update
 from fastapi.responses import RedirectResponse
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.orm import sessionmaker
 from backend.db_utils import get_idntier_api_key
@@ -14,16 +14,20 @@ from .utils import check_is_date_valid
 from .dependencies import AccessTokenBearer,RefreshTokenBearer,get_session,get_session_factory
 from .middlewares import RequestTimingMiddleware
 from .models import LongUrl,BatchUrls,UserCreateModel,LoginInput,Token
+from .rate_limit_utils import limiter
 
-load_dotenv()
+load_dotenv(find_dotenv(raise_error_if_not_found=True), override=True)
 
 urls_router=APIRouter()
 
 accessTokenBearer=AccessTokenBearer()
 refreshTokenBearer=RefreshTokenBearer()
 
+
+
 @urls_router.post("/shorten")
-async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session=Depends(get_session)):
+# @limiter.limit("100/minute")
+async def shorten_url(request: Request,payload:LongUrl,api_key:str=Header(...),db_session=Depends(get_session)):
     get_user_id_reqst=await check_api_key(api_key,db_session)
    
     
@@ -59,7 +63,8 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
     
 
 @urls_router.get("/redirect")
-async def redirect_url(short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+@limiter.limit("100/minute")
+async def redirect_url(request:Request,short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
     url=await load_url(short_code,db_session)
    
     if url is None:
