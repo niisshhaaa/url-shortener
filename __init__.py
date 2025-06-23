@@ -6,7 +6,7 @@ from backend.main_new import urls_router
 from error_tracking.routes import sentry_router
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 from backend.rate_limit_utils import limiter
-from global_exceptions.rate_limit_exception import register_rate_limit_err_handler
+# from global_exceptions.rate_limit_exception import register_rate_limit_err_handler
 
 from contextlib import asynccontextmanager
 
