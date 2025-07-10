@@ -63,7 +63,7 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
     
 
 @urls_router.get("/redirect")
-@limiter.limit("100/minute")
+# @limiter.limit("100/minute")
 async def redirect_url(request:Request,short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
     url=await load_url(short_code,db_session)
    

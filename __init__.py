@@ -7,13 +7,11 @@ from error_tracking.routes import sentry_router
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 from backend.rate_limit_utils import limiter
 # from global_exceptions.rate_limit_exception import register_rate_limit_err_handler
-
+from prometheus.custom_instrumentator import instrumentator
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
-
 from error_tracking.sentry_init import init_sentry
-
+# from prometheus_fastapi_instrumentator import Instrumentator
 
 @asynccontextmanager  
 async def app_lifespan(app:FastAPI):
@@ -44,8 +42,9 @@ app.include_router(urls_router)
 app.include_router(sentry_router)
 app.add_middleware(RequestTimingMiddleware) 
 app.add_middleware(SentryAsgiMiddleware)
-Instrumentator().instrument(app).expose(app) 
-# autmatically adds a /metrics endpoint to app via which prometheus can scrape metrics
+instrumentator.instrument(app).expose(app) 
+# Instrumentator().instrument(app).expose(app) 
+# adds a /metrics endpoint to app via which prometheus can scrape metrics
     
 
 
