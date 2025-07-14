@@ -3,8 +3,8 @@ import logging,time
 from fastapi import Request,status,Depends
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
-from .dependencies import get_session
-from .db_utils import get_idntier_api_key
+from backend.dependencies import get_session
+from backend.db_utils import get_idntier_api_key
 
 
 # Configure Python’s logging to write to a file

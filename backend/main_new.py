@@ -12,7 +12,7 @@ from db.schema import URL_SHORTENER,Users
 import asyncio
 from .utils import check_is_date_valid
 from .dependencies import AccessTokenBearer,RefreshTokenBearer,get_session,get_session_factory
-from .middlewares import RequestLoggingMiddleware
+from middlewares.middlewares import RequestLoggingMiddleware
 from .models import LongUrl,BatchUrls,UserCreateModel,LoginInput,Token
 from .rate_limit_utils import limiter
 

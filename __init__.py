@@ -1,6 +1,7 @@
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi.middleware import SlowAPIMiddleware
-from backend.middlewares import RequestLoggingMiddleware
+from middlewares.middlewares import RequestLoggingMiddleware
+from middlewares.conditional_middlewares import ConditionalLoggingMiddleware
 from db.conn_session import async_engine
 from backend.main_new import urls_router
 from error_tracking.routes import sentry_router
@@ -40,8 +41,11 @@ app= FastAPI(lifespan=app_lifespan)
 
 app.include_router(urls_router)
 app.include_router(sentry_router)
-app.add_middleware(RequestLoggingMiddleware) 
-app.add_middleware(SentryAsgiMiddleware)
+# app.add_middleware(RequestLoggingMiddleware) 
+
+app.add_middleware(ConditionalLoggingMiddleware, paths=[])
+
+# app.add_middleware(SentryAsgiMiddleware)
 instrumentator.instrument(app).expose(app) 
 # Instrumentator().instrument(app).expose(app) 
 # adds a /metrics endpoint to app via which prometheus can scrape metrics
