@@ -3,7 +3,7 @@ import logging,time
 from fastapi import Request,status,Depends
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
-from backend.dependencies import get_session
+from backend.dependencies import get_session,get_session_factory
 from backend.db_utils import get_idntier_api_key
 
 
@@ -47,21 +47,28 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# class AuthenticationMiddleware(BaseHTTPMiddleware):
-#     async def dispatch(self, request:Request, call_next:RequestResponseEndpoint,db_session=get_session):
-#         api_key=request.headers.get("api-key")
 
-#         if not api_key:
-#              return JSONResponse(content={"detail": "Missing API key"},status_code=status.HTTP_401_UNAUTHORIZED)
-        
-#         session_factory = request.app.state.async_session
-        
-#         async with session_factory() as db_session:
-#             try:
-#                idntier=await get_idntier_api_key(api_key,db_session)
-#                request.state.idntier=idntier
-#             except Exception as e:
-#                logger.error(f"Authentication failed: {str(e)}")
-#                return JSONResponse(content={"detail": "Invalid API key"},status_code=status.HTTP_401_UNAUTHORIZED)
-        
-#         return await call_next(request)
+class AuthenticationMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, *, session):
+        super().__init__(app)
+        self.session = session
+
+    async def dispatch(self, request: Request, call_next):
+        api_key = request.headers.get("api-key")
+        if not api_key:
+            return JSONResponse(
+                {"detail": "Missing API key"},
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        async with self.session() as session:
+            identifier = await get_idntier_api_key(api_key, session)
+            if not identifier:
+                return JSONResponse(
+                    {"detail": "Invalid API key"},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+            
+            request.state.user_id = identifier
+
+        return await call_next(request)

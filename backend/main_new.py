@@ -14,7 +14,6 @@ from .utils import check_is_date_valid
 from .dependencies import AccessTokenBearer,RefreshTokenBearer,get_session,get_session_factory
 from middlewares.middlewares import RequestLoggingMiddleware
 from .models import LongUrl,BatchUrls,UserCreateModel,LoginInput,Token
-from .rate_limit_utils import limiter
 
 load_dotenv(find_dotenv(raise_error_if_not_found=True), override=True)
 
@@ -26,11 +25,9 @@ refreshTokenBearer=RefreshTokenBearer()
 
 
 @urls_router.post("/shorten")
-# @limiter.limit("100/minute")
-async def shorten_url(request: Request,payload:LongUrl,api_key:str=Header(...),db_session=Depends(get_session)):
+async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session=Depends(get_session)):
     get_user_id_reqst=await check_api_key(api_key,db_session)
    
-    
     res=await process_url(payload,db_session,get_user_id_reqst) 
     return res
  
@@ -63,8 +60,8 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
     
 
 @urls_router.get("/redirect")
-# @limiter.limit("100/minute")
-async def redirect_url(request:Request,short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+async def redirect_url(short_code:str,user_id=Depends(check_api_key),password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+    
     url=await load_url(short_code,db_session)
    
     if url is None:

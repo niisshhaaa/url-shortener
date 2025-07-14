@@ -1,6 +1,6 @@
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi.middleware import SlowAPIMiddleware
-from middlewares.middlewares import RequestLoggingMiddleware
+from middlewares.middlewares import RequestLoggingMiddleware,AuthenticationMiddleware
 from middlewares.conditional_middlewares import ConditionalLoggingMiddleware
 from db.conn_session import async_engine
 from backend.main_new import urls_router
@@ -13,6 +13,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from error_tracking.sentry_init import init_sentry
 # from prometheus_fastapi_instrumentator import Instrumentator
+
+from backend.dependencies import get_session_factory,get_session
+from db.conn_session import async_session
 
 @asynccontextmanager  
 async def app_lifespan(app:FastAPI):
@@ -44,6 +47,7 @@ app.include_router(sentry_router)
 # app.add_middleware(RequestLoggingMiddleware) 
 
 app.add_middleware(ConditionalLoggingMiddleware, paths=[])
+app.add_middleware(AuthenticationMiddleware, session=async_session)
 
 # app.add_middleware(SentryAsgiMiddleware)
 instrumentator.instrument(app).expose(app) 
