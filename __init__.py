@@ -43,14 +43,14 @@ app= FastAPI(lifespan=app_lifespan)
 # register_rate_limit_err_handler(app)
 
 app.include_router(urls_router)
-app.include_router(sentry_router)
+# app.include_router(sentry_router)
 # app.add_middleware(RequestLoggingMiddleware) 
 
-app.add_middleware(ConditionalLoggingMiddleware, paths=[])
+# app.add_middleware(ConditionalLoggingMiddleware, paths=[])
 app.add_middleware(AuthenticationMiddleware, session=async_session)
 
 # app.add_middleware(SentryAsgiMiddleware)
-instrumentator.instrument(app).expose(app) 
+# instrumentator.instrument(app).expose(app) 
 # Instrumentator().instrument(app).expose(app) 
 # adds a /metrics endpoint to app via which prometheus can scrape metrics
     

@@ -69,6 +69,14 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
             
-            request.state.user_id = identifier
+            if identifier.tier_level!='ENTERPRISE':
+                return JSONResponse(
+                    {"detail": "Invalid request for Hobby tier without pricing"},
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            request.state.user_identifier = identifier
+
+
 
         return await call_next(request)

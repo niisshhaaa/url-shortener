@@ -51,7 +51,7 @@ async def retry_ifnot_unq(short_code:str,url,session):
 async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool,exp_date:Optional[datetime]=None,password:Optional[str]=None):  
    
     new_urlncode=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid,expiry_date=exp_date,password=password)
-    session.add(new_urlncode)
+    session.add(new_urlncode)  # Session.add()' operation is not currently supported within the execution stage of the flush process. Results may not be consistent.  Consider using alternative event listeners or connection-level operations instead.
     try:
         await session.commit()
         await session.refresh(new_urlncode)
