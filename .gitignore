@@ -5,3 +5,10 @@ venv/
 # Ignore Python cache
 __pycache__/
 alembic.ini
+
+request_logs.log
+
+# ignore all .log files
+*.log
+# if you use log rotation
+*.log.*
