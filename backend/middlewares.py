@@ -6,24 +6,6 @@ from starlette.responses import JSONResponse
 from .dependencies import get_session
 from .db_utils import get_idntier_api_key
 
-logging.basicConfig(
-    filename="request_logs.log",
-    level=logging.INFO,
-    format="%(message)s"
-)
-logger = logging.getLogger("request-logger")
-
-# class RequestLoggingMiddleware(BaseHTTPMiddleware):
-#     async def dispatch(self, request, call_next):
-#         start_time=time.perf_counter()
-#         response=await call_next(request)
-#         end_time=time.perf_counter()
-#         process_time=end_time-start_time
-#         message=f'{request.client.host}:{request.client.port} - "{request.method}{request.url.path}" {response.status_code} took {process_time} '
-#         # logger.info(message)
-#         print (message)
-#         return response
-    
 
 # Configure Python’s logging to write to a file
 logging.basicConfig(
