@@ -58,7 +58,7 @@ async def shorten_url(request:Request,payload:List[LongUrl],db_session=Depends(g
 
 
 @urls_router.get("/redirect")
-async def redirect_url(short_code:str,user_id=Depends(check_api_key),password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+async def redirect_url(short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
     
     url=await load_url(short_code,db_session)
    
