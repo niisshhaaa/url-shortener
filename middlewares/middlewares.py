@@ -80,3 +80,15 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
 
         return await call_next(request)
+
+
+class BlacklistMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        api_key = request.headers.get("api-key", "")
+        # Only check endpoints that need auth:
+        if  api_key in request.app.state.blocked_keys:
+            return JSONResponse(
+                {"detail": "Please try after some time"},
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        return await call_next(request)

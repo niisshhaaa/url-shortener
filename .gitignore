@@ -12,3 +12,5 @@ request_logs.log
 *.log
 # if you use log rotation
 *.log.*
+
+config/blacklist.json

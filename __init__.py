@@ -1,6 +1,8 @@
+from typing import Set
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi.middleware import SlowAPIMiddleware
-from middlewares.middlewares import RequestLoggingMiddleware,AuthenticationMiddleware
+from config.blacklist import load_blacklist
+from middlewares.middlewares import BlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware
 from middlewares.conditional_middlewares import ConditionalLoggingMiddleware
 from db.conn_session import async_engine
 from backend.main_new import urls_router
@@ -17,8 +19,13 @@ from error_tracking.sentry_init import init_sentry
 from backend.dependencies import get_session_factory,get_session
 from db.conn_session import async_session
 
+blocked_keys: Set[str] = set()
+
 @asynccontextmanager  
 async def app_lifespan(app:FastAPI):
+
+     load_blacklist(blocked_keys)
+     app.state.blocked_keys = blocked_keys
 
      # ORM only maps schema to python objects , so create the schema(tables) for deploying the api 
      # or add alembic update in start command of app service on deployed platform 
@@ -48,6 +55,7 @@ app.include_router(urls_router)
 
 # app.add_middleware(ConditionalLoggingMiddleware, paths=[])
 app.add_middleware(AuthenticationMiddleware, session=async_session)
+app.add_middleware(BlacklistMiddleware)
 
 # app.add_middleware(SentryAsgiMiddleware)
 # instrumentator.instrument(app).expose(app) 
