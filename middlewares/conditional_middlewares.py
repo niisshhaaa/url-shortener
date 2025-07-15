@@ -42,3 +42,5 @@ class ConditionalLoggingMiddleware(BaseHTTPMiddleware):
             print(log_line)  # For debugging purposes, you can also print to console
 
             return response
+        
+        return await call_next(request)

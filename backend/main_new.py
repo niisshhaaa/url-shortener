@@ -14,6 +14,7 @@ from .utils import check_is_date_valid
 from .dependencies import AccessTokenBearer,RefreshTokenBearer,get_session,get_session_factory
 from middlewares.middlewares import RequestLoggingMiddleware
 from .models import LongUrl,BatchUrls,UserCreateModel,LoginInput,Token
+from db.conn_session import async_session
 
 load_dotenv(find_dotenv(raise_error_if_not_found=True), override=True)
 
@@ -58,7 +59,7 @@ async def shorten_url(request:Request,payload:List[LongUrl],db_session=Depends(g
 
 
 @urls_router.get("/redirect")
-async def redirect_url(short_code:str,user_id=Depends(check_api_key),password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+async def redirect_url(short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
     
     url=await load_url(short_code,db_session)
    
@@ -196,16 +197,6 @@ async def get_real_time_analytics(session,limit,offset):
 
 
 
-
-
-
-
-
-
-
-
-
-
 # Handling of race conditions --
 #A race condition occurs when two or more processes or threads attempt to perform an operation on shared resources simultaneously in such a way 
 # that the outcome depends on the timing or order of execution.
@@ -213,8 +204,15 @@ async def get_real_time_analytics(session,limit,offset):
 # one requests succeeds , other requests will cause integrity error as short code should be unique
 # 2) Different payload with same hash codes which don't already exist, added the integrity error checks to handle that .
 
-
-    
+@urls_router.get("/health")
+async def health_check():
+    try:
+        async with async_session() as session:
+            # Check if the database connection is alive
+            await session.execute("SELECT 1")
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
     
 
 
