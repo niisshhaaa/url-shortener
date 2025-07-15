@@ -12,9 +12,8 @@ from db.schema import URL_SHORTENER,Users
 import asyncio
 from .utils import check_is_date_valid
 from .dependencies import AccessTokenBearer,RefreshTokenBearer,get_session,get_session_factory
-from .middlewares import RequestLoggingMiddleware
+from middlewares.middlewares import RequestLoggingMiddleware
 from .models import LongUrl,BatchUrls,UserCreateModel,LoginInput,Token
-from .rate_limit_utils import limiter
 
 load_dotenv(find_dotenv(raise_error_if_not_found=True), override=True)
 
@@ -26,45 +25,41 @@ refreshTokenBearer=RefreshTokenBearer()
 
 
 @urls_router.post("/shorten")
-# @limiter.limit("100/minute")
-async def shorten_url(request: Request,payload:LongUrl,api_key:str=Header(...),db_session=Depends(get_session)):
+async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session=Depends(get_session)):
     get_user_id_reqst=await check_api_key(api_key,db_session)
    
-    
     res=await process_url(payload,db_session,get_user_id_reqst) 
     return res
  
 # for batch endpoint if separate from single post endpoint don't allow single url payload,
 # here it is just for example if a single endpoint were to handle both single url and batch url payload.
 @urls_router.post("/shorten/batch")
-async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(...),db_session=Depends(get_session_factory)): 
-    async with db_session() as session:
-        get_user_id_reqst=await check_api_key(api_key,session)
-   
-    if isinstance(payload,LongUrl):
-        async with db_session() as session:
-            resp=await process_url(payload,session,get_user_id_reqst) 
-            if resp["error"]:
-                raise resp["error"]  
-            return resp
-            
-    elif isinstance(payload,list) and get_user_id_reqst.tier_level=='ENTERPRISE':
-        async with db_session() as session:
-            results=await asyncio.gather(*[process_url(payload_item,session,get_user_id_reqst) for payload_item in payload])
+async def shorten_url(request:Request,payload:List[LongUrl],db_session=Depends(get_session)): 
 
-        successes=[result for result in results if result["error"] is None]
-        failures=[result for result in results if result["error"] is not None]
+    user_identifier = request.state.user_identifier
 
-        return {"successes": successes, "failures": failures}
-    elif isinstance(payload,list) and get_user_id_reqst.tier_level=='HOBBY':
-        raise HTTPException(status_code=400, detail="Invalid request for Hobby tier without pricing")
-    else:
-        raise HTTPException(status_code=422, detail="Unprocessable entity,invalid input format")
-    
+    print("Enterprise tier user")
+    # try:
+    #     results=[await process_url(payload_item,db_session,user_identifier) for payload_item in payload]
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"Error processing batch: {str(e)}")
+    # print(results)
+    # async with db_session() as session:
+    try:
+        results=await asyncio.gather(*[process_url(payload_item,db_session,user_identifier) for payload_item in payload])
+        print(results)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing batch: {str(e)}")
+
+    successes=[result for result in results if result.get("error", None) is None]
+    failures=[result for result in results if result.get("error", None) is not None]
+
+    return {"successes": successes, "failures": failures}  
+
 
 @urls_router.get("/redirect")
-# @limiter.limit("100/minute")
-async def redirect_url(request:Request,short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+async def redirect_url(short_code:str,user_id=Depends(check_api_key),password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+    
     url=await load_url(short_code,db_session)
    
     if url is None:

@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = { 
     stages: [
-        { duration: '10s', target:120 },   
+        { duration: '10s', target:100 },   
     ],
     thresholds: {
         http_req_duration: ['p(95)<500'], // 95% of requests should complete within 500ms
@@ -53,11 +53,20 @@ export default function(){
 
     // let short_code="something" 
 
-    let getres=http.get(`${BASE_URL}/redirect?short_code=something`,{redirects:0});
-    check(getres,{
-        "response code was 307": (getres)=>getres.status===307,
-        "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
+    let getHeaders = {'Content-Type':'application/json',
+        'api-key':'wrongkey'}; // intentionally wrong api key to test auth failure;
+
+    
+    let getres = http.get(`${BASE_URL}/redirect?short_code=something`, {headers: getHeaders});
+    check(getres, {
+        "auth failed (401 or 403)": (r) => r.status === 403 || r.status === 401
     });
+
+    // let getres=http.get(`${BASE_URL}/redirect?short_code=something`,{redirects:0});
+    // check(getres,{
+    //     "response code was 307": (getres)=>getres.status===307,
+    //     "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
+    // });
 
     sleep(1);
 

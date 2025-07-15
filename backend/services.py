@@ -1,15 +1,19 @@
 
+from fastapi.params import Header
+from fastapi import status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import hashlib,random,socket,string
 from typing import Optional
 from urllib.parse import urlparse
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import load_only
 
 
+from backend.dependencies import get_session
 from backend.utils import is_valid_url
 from backend.utils import check_is_date_valid, hash_code_with_entropy, hash_code_without_entropy, random_code
 from db.schema import URL_SHORTENER, Users
@@ -47,7 +51,7 @@ async def retry_ifnot_unq(short_code:str,url,session):
 async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool,exp_date:Optional[datetime]=None,password:Optional[str]=None):  
    
     new_urlncode=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid,expiry_date=exp_date,password=password)
-    session.add(new_urlncode)
+    session.add(new_urlncode)  # Session.add()' operation is not currently supported within the execution stage of the flush process. Results may not be consistent.  Consider using alternative event listeners or connection-level operations instead.
     try:
         await session.commit()
         await session.refresh(new_urlncode)
@@ -183,13 +187,15 @@ async def process_url(payload,session,get_user_id_reqst):
             except Exception as e:
                  return {"url":payload.url_link,"short_code":None,"error":e}
 
-async def check_api_key(api_key,session):
+async def check_api_key(api_key:str=Header(...),session: AsyncSession = Depends(get_session)):
+    if not api_key:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API key")
     
-    get_user_id_reqst=await get_idntier_api_key(api_key,session)
-    get_user_id_reqst_id=get_user_id_reqst.id if get_user_id_reqst else None
-    if not get_user_id_reqst_id:
-        raise HTTPException(status_code=403,detail="Not a valid api key")
-    return get_user_id_reqst
+    idntier=await get_idntier_api_key(api_key,session)
+
+    if not idntier:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Not a valid api key")
+    return idntier
 
 async def del_scode(session,short_code):
     # await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
