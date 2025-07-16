@@ -3,7 +3,7 @@ from fastapi.params import Header
 from fastapi import status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import  AsyncSession
-from sqlalchemy.exc import IntegrityError
+
 from datetime import datetime
 import hashlib,random,socket,string
 from typing import Optional
@@ -11,72 +11,14 @@ from urllib.parse import urlparse
 from fastapi import Depends, HTTPException
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import load_only
+from backend.common.utils import check_is_date_valid
+from db.dependencies import get_session
+from backend.url_shortener.utils import hash_code_without_entropy, is_valid_url
 
-
-from backend.dependencies import get_session
-from backend.utils import is_valid_url
-from backend.utils import check_is_date_valid, hash_code_with_entropy, hash_code_without_entropy, random_code
 from db.schema import URL_SHORTENER, Users
 
+from .repository import save_url,check_code_exists,retry_ifnot_unq
 
-async def check_code_exists(session,short_code:str):
-    result = await session.execute(
-       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id).where(URL_SHORTENER.short_code==short_code)
-    )
-    res=result.first()
-    return res if res else None
-
-
-async def retry_ifnot_unq(short_code:str,url,session):
-    
-    max_attempts = 5
-    attempts = 0
-    while True:
-        hash_code_new = hashlib.md5(f"{url}{attempts}".encode()).hexdigest()[:6]
-        code_exists=await check_code_exists(session,hash_code_new) 
-        code_exists_scode=code_exists.URL_SHORTENER.short_code if code_exists else None 
-        if not code_exists_scode:
-            break
-        attempts+=1
-
-       
-
-        if attempts>=max_attempts:
-            raise HTTPException(status_code=500,detail='couldn''t generate unique code')
-        
-        
-    short_code=hash_code_new
-    return short_code
-
-async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool,exp_date:Optional[datetime]=None,password:Optional[str]=None):  
-   
-    new_urlncode=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid,expiry_date=exp_date,password=password)
-    session.add(new_urlncode)  # Session.add()' operation is not currently supported within the execution stage of the flush process. Results may not be consistent.  Consider using alternative event listeners or connection-level operations instead.
-    try:
-        await session.commit()
-        await session.refresh(new_urlncode)
-        return new_urlncode
-    except IntegrityError:
-        await session.rollback()
-
-        code_exists=await check_code_exists(session,short_code)
-
-        if code_exists and have_slug:
-            raise HTTPException(status_code=409,detail="Slug already exits, Retry")
-
-        if code_exists.short_code:
-            if code_exists.original_url==original_url and code_exists.user_id==userid:
-               return new_urlncode
-            else:
-               short_code=await retry_ifnot_unq(short_code,original_url,session)
-               newinsert= await save_url(session,original_url,short_code)
-               return newinsert
-    except Exception as e:
-        await session.rollback()
-        raise e
-        
-        
-    
 
 async def get_url(short_code:str,session:AsyncSession):
    
@@ -100,34 +42,7 @@ async def url_to_update(short_code:str,session:AsyncSession):
         fetchresult=result.first()
         return fetchresult if fetchresult else None
 
-async def load_url(short_code:str,session:AsyncSession):
-   
-        result = await session.execute(
-           select(URL_SHORTENER)
-           .where(URL_SHORTENER.short_code == short_code))
-        res=result.scalar_one_or_none()
-        print(res)
-        return res if res else None
 
-
-
-async def retry_ifnot_unq(short_code:str,url,session):
-    
-    max_attempts = 5
-    attempts = 0
-    while True:
-        hash_code_new = hash_code_with_entropy(url)+random_code()
-        code_exists=await check_code_exists(session,hash_code_new) 
-        code_exists_scode=code_exists.short_code if code_exists else None 
-        if not code_exists_scode:
-            break
-        attempts+=1
-
-        if attempts>=max_attempts:
-            raise HTTPException(status_code=500,detail='couldn''t generate unique code')
-        
-    short_code=hash_code_new
-    return short_code
     
 async def get_idntier_api_key(api_key,session):
     stmt=select(Users.id,Users.tier_level).where(Users.api_key==api_key)
@@ -197,32 +112,14 @@ async def check_api_key(api_key:str=Header(...),session: AsyncSession = Depends(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Not a valid api key")
     return idntier
 
-async def del_scode(session,short_code):
-    # await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
-    stmt=(
-        update(URL_SHORTENER)
-        .where(URL_SHORTENER.short_code==short_code)
-        .values(deleted_at=datetime.now())
-        .returning(URL_SHORTENER.deleted_at)
-    )
-    result=await session.execute(stmt)
-    result=result.first()
-    print("deleted result",result)
-    await session.commit()
-    return result
+
 
 async def get_id_api_key(api_key,session):
     stmt=select(Users.id).where(Users.api_key==api_key)
     result=await session.execute(stmt)
     return result.first() if result else None 
 
-async def get_userid_scode(scode,session):
-    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at).where(URL_SHORTENER.short_code==scode)
-    result=await session.execute(stmt)
-    print("scode res",result)
-    return result.first() if result else None # will return None in case when short code does not exist , (None,) if user id is null while only retrieving user_id
 
-async def del_scode(session,short_code):
-    await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
-    await session.commit()
+
+
     

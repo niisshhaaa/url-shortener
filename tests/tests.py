@@ -1,7 +1,7 @@
 
 # from .main_no_orm import app
 # from .main import app
-from .main_new import app
+from ..main import app
 import pytest
 from httpx import ASGITransport, AsyncClient
 from asgi_lifespan import LifespanManager

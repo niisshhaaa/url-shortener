@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from datetime import datetime ,timedelta
 
-load_dotenv()
+
 
 pass_context=CryptContext(schemes=['bcrypt'])
 
@@ -104,22 +104,6 @@ def hash_code_without_entropy(url):
     short_hash=full_hash_rand[:7]
     return short_hash
 
-def check_is_date_valid(date):
-        try:
-            date=date
-            print(date,date.date(),date.now().date(),datetime.now().date())
-            print("now date",datetime.now().date())
-            if isinstance(date,str):       # date from payload
-                date=datetime.fromisoformat(date)
-            
-            if isinstance(date,datetime):  # from query parameter of update request
-                date=date.date()
-            
-            if date>=datetime.now().date():
-                return date
-            else:
-                raise HTTPException(status_code=400,detail="Dates before today not allowed")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD ")
+
         
 
