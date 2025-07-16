@@ -1,25 +1,16 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession ,async_sessionmaker
-import os
-import logging
-from dotenv import find_dotenv, load_dotenv
-from fastapi import FastAPI
-from contextlib import asynccontextmanager 
-from db.schema import Base
+from config.config import configSettgs
 
 
-
-load_dotenv(find_dotenv(raise_error_if_not_found=True), override=True)
-
-logger = logging.getLogger(__name__)
-
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = configSettgs.DATABASE_URL
 
 # DATABASE_URL format : "postgresql+asyncpg://user:password@localhost/URL_SHORTENER"
 
-#Create async database engine
+#Create async database engine connection
 async_engine=create_async_engine(DATABASE_URL,future=True, echo=True,
                                       pool_size=20,max_overflow=30)
-#create an async session factory using engine for connection
+
+#Create an async session factory using engine for connection
 async_session=async_sessionmaker(bind=async_engine,class_=AsyncSession,expire_on_commit=False)
 
 

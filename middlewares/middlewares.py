@@ -1,10 +1,10 @@
 from datetime import datetime
 import logging,time
-from fastapi import Request, Response,status,Depends
+from fastapi import HTTPException, Request, Response,status,Depends
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
-from backend.dependencies import get_session,get_session_factory
-from backend.db_utils import get_idntier_api_key
+from backend.common.repository import get_idntier_api_key
+from backend.auth.dependencies import Authentication
 
 
 # Configure Python’s logging to write to a file
@@ -52,11 +52,12 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         if not any(request.url.path.startswith(p) for p in self.paths):
             # Skip authentication for paths that don't require it
             return await call_next(request)
-        
-        api_key = request.headers.get("api-key")
+       
+        api_key = await Authentication()(request)
+    
         if not api_key:
             return JSONResponse(
-                {"detail": "Missing API key"},
+                {"detail": "Missing or Invalid Auth Headers"},
                 status_code=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -100,6 +101,7 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
 class BlacklistMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         
+        # considering if usually IP's blocked, so retreiving api_key seprately from Authorization headers
         api_key = request.headers.get("api-key", "")
         
         if  api_key in request.app.state.blocked_keys:

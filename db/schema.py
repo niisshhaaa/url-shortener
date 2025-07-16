@@ -64,8 +64,6 @@ class Users(Base):
     #otherwise it will cause problem when adding new user and not specifying any value for tier_level directly
     #First chnage in sqlalchemy using alembic and then update here in orm .
 
-    # def create_user(self):
-
     def __repr__(self)->str:
         return (f"Users(id: {self.id}, email: {self.email}, name: {self.name}, "
                 f"api_key: {self.api_key}, created_at: {self.created_at})")

@@ -1,0 +1,1 @@
+# Auth service logic will be placed here. 

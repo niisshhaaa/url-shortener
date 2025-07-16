@@ -6,7 +6,7 @@ from fastapi import HTTPException,Depends
 from .schema import Users,URL_SHORTENER
 from dotenv import load_dotenv
 from sqlalchemy import select,delete,func,update
-from db.conn_session import async_session
+from db.db_connection import async_session
 
 load_dotenv()
 
