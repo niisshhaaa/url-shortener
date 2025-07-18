@@ -1,22 +1,25 @@
 import asyncio
-from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from fastapi import APIRouter, Header
 from fastapi import Request, Depends, HTTPException
+from fastapi.params import Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.common.utils import check_is_date_valid
+from backend.url_shortener.dependencies import validate_payload
 from db.schema import URL_SHORTENER
 from .repository import del_scode, get_userid_scode, load_url
 from db.dependencies import get_session, get_session_factory
-from .models import LongUrl
+from .models import  DateValidator, LongUrl
 from.services import process_url
+from datetime import date, datetime
 
 urls_router=APIRouter()
 
+
 @urls_router.post("/shorten")
-async def shorten_url(request:Request,payload:LongUrl,db_session=Depends(get_session)):
+async def shorten_url(request:Request,payload:LongUrl=Depends(validate_payload),db_session=Depends(get_session)):
     user_identifier = request.state.user_identifier
    
     res=await process_url(payload,db_session,user_identifier.id) 
@@ -92,7 +95,7 @@ async def redirect_url(short_code:str,password:Optional[str]=None,db_session:Asy
 @urls_router.patch("/shorten/{short_code}")
 async def update_code(
     request:Request,
-    short_code:str,expiry_date:Optional[datetime],password:Optional[str]=None,
+    short_code:str,expiry_date:Optional[datetime]=None,password:Optional[str]=None,
     db_session:AsyncSession=Depends(get_session)):
 
     user_identifier = request.state.user_identifier

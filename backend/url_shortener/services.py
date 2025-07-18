@@ -51,14 +51,7 @@ async def get_idntier_api_key(api_key,session):
 
 async def process_url(payload,session,get_user_id_reqst):
             try:
-                if not is_valid_url(payload.url_link):
-                    raise HTTPException(
-                    status_code=400, detail="Invalid or insecure URL format")
-            
-                valid_date=None
-                if payload.exp_date:
-                    valid_date=check_is_date_valid(payload.exp_date)
-                
+                valid_date=payload.exp_date
                 user_id_reqst=get_user_id_reqst.id
 
                 if payload.custom_slug:
