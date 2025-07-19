@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.common.utils import check_is_date_valid
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
 from db.schema import URL_SHORTENER
-from .repository import del_scode, get_userid_scode, increment_stats, load_url, update_code_db
+from .repository import del_scode, get_urls, get_userid_scode, increment_stats, load_url, update_code_db
 from db.dependencies import get_session, get_session_factory
 from .models import  DateValidator, LongUrl, ShortenResponse
 from.services import process_url
@@ -78,7 +78,7 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,password:
        raise HTTPException(status_code=410,detail="Code already expired")
     
 
-    #  Kick off analytics increment after sending redirect
+    #  Kick off analytics increment after sending redirect in same thread
     background_tasks.add_task(increment_stats, short_code)
     
     return RedirectResponse(url=url.original_url,status_code=307)
@@ -112,54 +112,24 @@ async def update_code(
     if code.deleted_at:
         raise HTTPException(status_code=410,detail="Code already deleted")
     
-    
-
-
-    
     res=await update_code_db(db_session,code.short_code,expiry_date,password)
-
-
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":password,"message":"updated short code!"}
 
 
 @urls_router.get("/urls")
-async def get_all_urls_for_user(request:Request,db_session:AsyncSession=Depends(get_session),page:int=1,limit:int=10):
+async def get_all_urls_for_user(
+    request:Request,db_session:AsyncSession=Depends(get_session),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=20),
+    ):
     user_identifier = request.state.user_identifier
-    user_id=user_identifier.id if user_identifier else None
+    user_id=user_identifier.id 
 
-    if not user_id:
-        raise HTTPException(status_code=403,detail="Not a valid api key")
-    
-    
-    stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==user_id).limit(limit).offset((page-1)*limit)
-    all_urls_res=await db_session.execute(stmt)
-    # all_urls=all_urls_res.scalars().all()  # response already in required dict format 
-    all_urls=all_urls_res.scalars()   # for selecting all rows while using .scalars only it needs to serialised to proper format, fetchall gives objects list so define __repr__ method to change the result in required format
-    return {"user_id":user_id,"urls":[row.to_dict() for row in all_urls],"page":page,"urls_count":limit}
-    # return all_urls    
+    urls=await get_urls(db_session,user_id,limit,page)
+    return urls    
+
+
+
+
     
 
-@urls_router.delete("/shorten/{short_code}")
-async def remove_scode(request:Request,short_code:str,db_session:AsyncSession=Depends(get_session)):
-
-    user_identifier = request.state.user_identifier
-    user_id=user_identifier.id if user_identifier else None
-    scode_user_id=await get_userid_scode(short_code,db_session)
-
-    print("user_id",user_id)
-    print("scodeid",scode_user_id)
-    
-    if scode_user_id :  # will be None in case of no short_code 
-        if user_id :
-            if scode_user_id.user_id==user_id:
-                if not scode_user_id.deleted_at:  
-                    await del_scode(db_session,short_code)
-                    return f"{short_code} short code has been deleted"
-                raise HTTPException(status_code=410,detail="Code already deleted")
-            elif scode_user_id.user_id is None:  # to allow for deletions for case where no user associated with earlier codes
-                return f"{short_code} short code has been deleted" 
-            raise HTTPException(status_code=403,detail="Cannot delete,Code does not belong to user")
-        else:
-           raise HTTPException(status_code=403,detail="Not a valid api key")
-    else:
-        raise HTTPException(status_code=404,detail='Not a valid short code')

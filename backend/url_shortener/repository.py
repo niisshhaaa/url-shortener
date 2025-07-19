@@ -146,4 +146,6 @@ async def update_code_db(session,code,expiry_date,password):
     
     return res
         
-        
+async def get_urls(session,user_id,limit,page):
+    stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==user_id).offset((page-1)*limit).limit(limit)
+    return await session.execute(stmt)
