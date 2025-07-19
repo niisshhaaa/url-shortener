@@ -93,18 +93,19 @@ async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool
     except IntegrityError:
         await session.rollback()
 
-        code_exists=await check_code_exists(session,short_code)
-
-        if code_exists and have_slug:
-            raise HTTPException(status_code=409,detail="Slug already exits, Retry")
-
-        if code_exists.short_code:
-            if code_exists.original_url==original_url and code_exists.user_id==userid:
-               return new_urlncode
-            else:
-               short_code=await retry_ifnot_unq(short_code,original_url,session)
-               newinsert= await save_url(session,original_url,short_code)
-               return newinsert
+        if have_slug:
+            # user asked for that slug → conflict
+            raise HTTPException(
+                status_code=409,
+                detail="Custom slug already exists; please choose another."
+            )
+        else:
+            # extremely rare hash‑collision  
+            # you can either let the client retry (they’ll get a fresh hash)…
+            raise HTTPException(
+                status_code=500,
+                detail="Internal Server Error, Retry. "
+            )
     except Exception as e:
         await session.rollback()
         raise e
