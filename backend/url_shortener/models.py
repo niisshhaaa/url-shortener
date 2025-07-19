@@ -28,8 +28,4 @@ class DateValidator(BaseModel):
         example="2025-08-15",
     )
 
-    @field_validator("exp_date")
-    def must_be_future(cls, v: Optional[date]) -> Optional[date]:
-        if v and v <= date.today():
-            raise ValueError("expiry_date must be strictly in the future")
-        return v
+  

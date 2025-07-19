@@ -23,10 +23,9 @@ async def load_url(short_code:str,session:AsyncSession):
         return res 
 
 async def get_userid_scode(scode,session):
-    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at).where(URL_SHORTENER.short_code==scode)
+    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode)
     result=await session.execute(stmt)
-    print("scode res",result)
-    return result.first() if result else None # will return None in case when short code does not exist , (None,) if user id is null while only retrieving user_id
+    return result.first() if result else None
 
 
 async def del_scode(session,short_code):
@@ -128,5 +127,23 @@ async def increment_stats(short_code: str) -> None:
         )
         await session.execute(stmt)
         await session.commit()
+
+
+async def update_code_db(session,code,expiry_date,password):
+    
+    stmt=(
+    update(URL_SHORTENER)
+    .where(URL_SHORTENER.short_code==code)
+    .values(expiry_date=expiry_date,
+            password=password)
+    .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date)
+    )
+    result=await session.execute(stmt)
+    res=result.first() 
+    await session.commit()
+    if not res:
+        raise HTTPException(status_code=500,detail="Couldn't update code")
+    
+    return res
         
         

@@ -4,12 +4,13 @@ from fastapi import APIRouter, Header
 from fastapi import Request, Depends, HTTPException,BackgroundTasks
 from fastapi.params import Query
 from fastapi.responses import RedirectResponse
+from pydantic import Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.common.utils import check_is_date_valid
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
 from db.schema import URL_SHORTENER
-from .repository import del_scode, get_userid_scode, increment_stats, load_url
+from .repository import del_scode, get_userid_scode, increment_stats, load_url, update_code_db
 from db.dependencies import get_session, get_session_factory
 from .models import  DateValidator, LongUrl, ShortenResponse
 from.services import process_url
@@ -86,39 +87,38 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,password:
 @urls_router.patch("/shorten/{short_code}")
 async def update_code(
     request:Request,
-    short_code:str,expiry_date:Optional[datetime]=None,password:Optional[str]=None,
+    short_code:str,
+    expiry_date: Optional[date] = Query(
+        None,
+        description="New expiration date in YYYY-MM-DD ",
+        example="2025-08-15",
+    ),
+    password:Optional[str]=None,
     db_session:AsyncSession=Depends(get_session)):
 
     user_identifier = request.state.user_identifier
+    user_id=user_identifier.id 
 
-    user_id=user_identifier.id if user_identifier else None
+    if not (expiry_date and password):
+        return {"message":"Please provide fields to update"}
 
-    if not user_id:
-        raise HTTPException(status_code=403,detail="Not a valid api key")
-
-    code_exists=await get_userid_scode(short_code,db_session)
-    if not code_exists:
+    code=await get_userid_scode(short_code,db_session)
+    if not code:
         raise HTTPException(status_code=404, detail="Short code not found")
     
-    if code_exists.user_id!=user_id:
+    if code.user_id!=user_id:
         raise HTTPException(status_code=403,detail="Cannot update ,code belongs to another user")
     
-    if code_exists.deleted_at is not None:
+    if code.deleted_at:
         raise HTTPException(status_code=410,detail="Code already deleted")
-    valid_date=check_is_date_valid(expiry_date)
- 
-    if valid_date:
-        stmt=(
-        update(URL_SHORTENER)
-        .where(URL_SHORTENER.short_code==short_code)
-        .values(expiry_date=expiry_date,
-                password=password)
-        .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date)
-        )
-        result=await db_session.execute(stmt)
-        await db_session.commit()
-        res=result.first() if result else None
     
+    
+
+
+    
+    res=await update_code_db(db_session,code.short_code,expiry_date,password)
+
+
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":password,"message":"updated short code!"}
 
 
