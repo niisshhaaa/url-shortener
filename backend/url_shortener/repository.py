@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import  desc, select, update ,delete
+from sqlalchemy import  desc, select, update
 from db.schema import URL_SHORTENER
 from db.db_connection import async_session
 
@@ -28,30 +28,11 @@ async def get_userid_scode(scode,session):
     return result.first() if result else None
 
 
-async def del_scode(session,short_code):
-    # await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
-    stmt=(
-        update(URL_SHORTENER)
-        .where(URL_SHORTENER.short_code==short_code)
-        .values(deleted_at=datetime.now())
-        .returning(URL_SHORTENER.deleted_at)
-    )
-    result=await session.execute(stmt)
-    result=result.first()
-    print("deleted result",result)
-    await session.commit()
-    return result
-
-async def del_scode(session,short_code):
-    await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
-    await session.commit()
-
 async def check_code_exists(session,short_code:str):
     result = await session.execute(
        select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id,URL_SHORTENER.password).where(URL_SHORTENER.short_code==short_code)
     )
     res=result.first()
-    print("codeexists",res)
     return res 
 
 async def new_code_with_entropy(url,session,min_length=5,max_length=8):
@@ -76,12 +57,8 @@ async def retry_ifnot_unq(short_code:str,url,session):
         if not code_exists_scode:
             break
         attempts+=1
-
-       
-
         if attempts>=max_attempts:
             raise HTTPException(status_code=500,detail='Couldn''t generate unique short code,try custom code')
-        
         
     short_code=hash_code_new
     return short_code

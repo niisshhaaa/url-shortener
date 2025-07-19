@@ -4,15 +4,12 @@ from fastapi import APIRouter, Header
 from fastapi import Request, Depends, HTTPException,BackgroundTasks
 from fastapi.params import Query
 from fastapi.responses import RedirectResponse
-from pydantic import Field
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
-from backend.common.utils import check_is_date_valid
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
-from db.schema import URL_SHORTENER
-from .repository import del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
+from .repository import  get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
-from .models import  DateValidator, LongUrl, ShortenResponse
+from .models import  LongUrl, ShortenResponse
 from.services import process_url
 from datetime import date, datetime
 
@@ -55,8 +52,8 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing batch: {str(e)}")
 
-    successes=[result for result in results if result.get("error", None) is None]
-    failures=[result for result in results if result.get("error", None) is not None]
+    successes=[result for result in results if "result" in result]
+    failures=[result for result in results if "error" in result]
 
     return {"successes": successes, "failures": failures}  
 

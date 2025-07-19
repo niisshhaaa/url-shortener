@@ -50,8 +50,8 @@ async def validate_payload(
     parsed_url=payload.url_link
      
     # Async DNS check
-    if not await _async_resolve(parsed_url.host):
-        raise HTTPException(400, f"Host {parsed_url.host!r} could not be resolved")
+    # if not await _async_resolve(parsed_url.host):
+    #     raise HTTPException(400, f"Host {parsed_url.host!r} could not be resolved")
     
     payload.url_link=str(payload.url_link)
     
@@ -73,16 +73,13 @@ async def validate_batch_payload(
     errors = []
     for idx, item in enumerate(items):
         try:
-            # call your existing single‑item validator:
+            # call single‑item validator:
             valid_item = await validate_payload(item)  
             validated.append(valid_item)
         except HTTPException as e:
             # collect which index failed and why
             errors.append({"index": idx, "detail": e.detail})
     if errors:
-        # If you want to fail the entire batch on first error, just:
-        # raise HTTPException(422, detail=errors)
-        # Or return successes/failures separately—up to you.
         raise HTTPException(422, detail={"batch_errors": errors})
     return validated
 
