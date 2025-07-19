@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import  select, update ,delete
+from sqlalchemy import  desc, select, update ,delete
 from db.schema import URL_SHORTENER
 from db.db_connection import async_session
 
@@ -148,4 +148,17 @@ async def update_code_db(session,code,expiry_date,password):
         
 async def get_urls(session,user_id,limit,page):
     stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==user_id).offset((page-1)*limit).limit(limit)
-    return await session.execute(stmt)
+    res=await session.execute(stmt)
+    return res.scalars().all()
+
+async def recent_urls(session,limit,offset):
+    stmt = (
+        select(URL_SHORTENER)
+        .order_by(desc(URL_SHORTENER.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+
+    result = await session.execute(stmt)
+    records = result.scalars().all()
+   

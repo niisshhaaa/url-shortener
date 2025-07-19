@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from error_tracking.sentry_init import init_sentry
 from db.db_connection import async_session
 from backend.url_shortener.routes import urls_router
-from backend.analytics.routes import analytics_router
 
 blocked_keys: Set[str] = set()
 
@@ -43,7 +42,6 @@ app= FastAPI(lifespan=app_lifespan)
 # register_rate_limit_err_handler(app)
 
 app.include_router(urls_router)
-app.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 # app.include_router(sentry_router)
 # app.add_middleware(RequestLoggingMiddleware) 
 
