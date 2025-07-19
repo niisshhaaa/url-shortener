@@ -49,7 +49,7 @@ app.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 
 
 app.add_middleware(AuthorizationMiddleware,paths=["/shorten/batch"])
-app.add_middleware(AuthenticationMiddleware, session=async_session,paths=["/shorten/","/urls"])
+app.add_middleware(AuthenticationMiddleware, session=async_session,paths=["/shorten", "/shorten/batch","/shorten/" ,"/urls"])
 app.add_middleware(BlacklistMiddleware)
 app.add_middleware(TimingMiddleware)
 

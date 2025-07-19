@@ -277,4 +277,27 @@ async def real_time_analytics(db_session:AsyncSession=Depends(get_session), limi
 
 
 
+@urls_router.delete("/shorten/{short_code}")
+async def remove_scode(request:Request,short_code:str,db_session:AsyncSession=Depends(get_session)):
 
+    user_identifier = request.state.user_identifier
+    user_id=user_identifier.id if user_identifier else None
+    scode_user_id=await get_userid_scode(short_code,db_session)
+
+    print("user_id",user_id)
+    print("scodeid",scode_user_id)
+    
+    if scode_user_id :  # will be None in case of no short_code 
+        if user_id :
+            if scode_user_id.user_id==user_id:
+                if not scode_user_id.deleted_at:  
+                    await del_scode(db_session,short_code)
+                    return f"{short_code} short code has been deleted"
+                raise HTTPException(status_code=410,detail="Code already deleted")
+            elif scode_user_id.user_id is None:  # to allow for deletions for case where no user associated with earlier codes
+                return f"{short_code} short code has been deleted" 
+            raise HTTPException(status_code=403,detail="Cannot delete,Code does not belong to user")
+        else:
+           raise HTTPException(status_code=403,detail="Not a valid api key")
+    else:
+        raise HTTPException(status_code=404,detail='Not a valid short code')

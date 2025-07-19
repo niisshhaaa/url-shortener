@@ -14,3 +14,7 @@ request_logs.log
 *.log.*
 
 config/blacklist.json
+
+experiments/
+
+experimental/

@@ -1,26 +1,31 @@
 from datetime import datetime
 import hashlib
+import random
 from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import  select, update ,delete
 from db.schema import URL_SHORTENER
+from db.db_connection import async_session
 
 async def load_url(short_code:str,session:AsyncSession):
    
         result = await session.execute(
-           select(URL_SHORTENER)
+           select(
+            URL_SHORTENER.original_url,
+            URL_SHORTENER.password,
+            URL_SHORTENER.expiry_date
+            )
            .where(URL_SHORTENER.short_code == short_code))
-        res=result.scalar_one_or_none()
+        res=result.one_or_none()
         print(res)
-        return res if res else None
+        return res 
 
 async def get_userid_scode(scode,session):
-    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at).where(URL_SHORTENER.short_code==scode)
+    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode)
     result=await session.execute(stmt)
-    print("scode res",result)
-    return result.first() if result else None # will return None in case when short code does not exist , (None,) if user id is null while only retrieving user_id
+    return result.first() if result else None
 
 
 async def del_scode(session,short_code):
@@ -43,10 +48,22 @@ async def del_scode(session,short_code):
 
 async def check_code_exists(session,short_code:str):
     result = await session.execute(
-       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id).where(URL_SHORTENER.short_code==short_code)
+       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id,URL_SHORTENER.password).where(URL_SHORTENER.short_code==short_code)
     )
     res=result.first()
-    return res if res else None
+    print("codeexists",res)
+    return res 
+
+async def new_code_with_entropy(url,session,min_length=5,max_length=8):
+    #Hash the url with the time entropy for randomness for same url 
+    full_hash_rand=hashlib.sha256(f"{url}{datetime.now()}".encode()).hexdigest()
+    length=random.randint(min_length,max_length)
+    short_hash=full_hash_rand[:length+1]
+    res= await check_code_exists(session,short_hash)
+    if res:
+        raise HTTPException(status_code=500,detail="Coudn''t generate unique short code,retry later or add custom code")
+    return short_hash
+
 
 async def retry_ifnot_unq(short_code:str,url,session):
     
@@ -63,7 +80,7 @@ async def retry_ifnot_unq(short_code:str,url,session):
        
 
         if attempts>=max_attempts:
-            raise HTTPException(status_code=500,detail='couldn''t generate unique code')
+            raise HTTPException(status_code=500,detail='Couldn''t generate unique short code,try custom code')
         
         
     short_code=hash_code_new
@@ -80,20 +97,55 @@ async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool
     except IntegrityError:
         await session.rollback()
 
-        code_exists=await check_code_exists(session,short_code)
-
-        if code_exists and have_slug:
-            raise HTTPException(status_code=409,detail="Slug already exits, Retry")
-
-        if code_exists.short_code:
-            if code_exists.original_url==original_url and code_exists.user_id==userid:
-               return new_urlncode
-            else:
-               short_code=await retry_ifnot_unq(short_code,original_url,session)
-               newinsert= await save_url(session,original_url,short_code)
-               return newinsert
+        if have_slug:
+            # user asked for that slug → conflict
+            raise HTTPException(
+                status_code=409,
+                detail="Custom slug already exists; please choose another."
+            )
+        else:
+            # extremely rare hash‑collision  
+            # you can either let the client retry (they’ll get a fresh hash)…
+            raise HTTPException(
+                status_code=500,
+                detail="Internal Server Error, Retry. "
+            )
     except Exception as e:
         await session.rollback()
         raise e
+    
+
+async def increment_stats(short_code: str) -> None:
+    async with async_session() as session:  
+        stmt = (
+            update(URL_SHORTENER)
+            .where(URL_SHORTENER.short_code == short_code)
+            .values(
+                visit_cnt       = URL_SHORTENER.visit_cnt + 1,
+                last_accessed_at= datetime.now()
+            )
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def update_code_db(session,code,expiry_date,password):
+    
+    stmt=(
+    update(URL_SHORTENER)
+    .where(URL_SHORTENER.short_code==code)
+    .values(expiry_date=expiry_date,
+            password=password)
+    .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date)
+    )
+    result=await session.execute(stmt)
+    res=result.first() 
+    await session.commit()
+    if not res:
+        raise HTTPException(status_code=500,detail="Couldn't update code")
+    
+    return res
         
-        
+async def get_urls(session,user_id,limit,page):
+    stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==user_id).offset((page-1)*limit).limit(limit)
+    return await session.execute(stmt)

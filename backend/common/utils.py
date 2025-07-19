@@ -9,10 +9,9 @@ from pydantic import BaseModel
 from datetime import datetime ,timedelta
 
 def check_is_date_valid(date):
+        if not date:
+             return None
         try:
-            date=date
-            print(date,date.date(),date.now().date(),datetime.now().date())
-            print("now date",datetime.now().date())
             if isinstance(date,str):       # date from payload
                 date=datetime.fromisoformat(date)
             
@@ -25,3 +24,5 @@ def check_is_date_valid(date):
                 raise HTTPException(status_code=400,detail="Dates before today not allowed")
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD ")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Error validating date: {str(e)}")
