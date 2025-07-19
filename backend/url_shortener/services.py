@@ -17,7 +17,7 @@ from backend.url_shortener.utils import hash_code_without_entropy, is_valid_url
 
 from db.schema import URL_SHORTENER, Users
 
-from .repository import save_url,check_code_exists,retry_ifnot_unq
+from .repository import save_url,check_code_exists,retry_ifnot_unq,check_url_exists
 
 
 async def get_url(short_code:str,session:AsyncSession):
@@ -54,47 +54,38 @@ async def process_url(payload,session,user_id:int):
                 valid_date=payload.exp_date
 
                 if payload.custom_slug:
-                    slug_code=payload.custom_slug
-                    code_exists=await check_code_exists(session,slug_code)
+                    short_code=payload.custom_slug
+                    code_exists=await check_code_exists(session,short_code)
                     if code_exists:
-                        raise HTTPException(status_code=409,detail="Slug already exits, Retry")
-                    short_code=slug_code
-                    newinsert=await save_url(session,user_id,original_url=payload.url_link,
-                                             short_code=short_code,have_slug=True,exp_date=valid_date,password=payload.password)
-                    print('newinsert',newinsert)
-                    response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
-                else:
-                    hash_code=hash_code_without_entropy(payload.url_link)
-                    code_exists=await check_code_exists(session,hash_code)
-                    print("code_exists",code_exists)
-                    code_exists_scode=code_exists.short_code if code_exists else None
-                    
-                    if code_exists_scode:
                         if code_exists.original_url==payload.url_link and code_exists.user_id==user_id:
-                            short_code=hash_code
-                            response={"original_url":code_exists.original_url,"short_url":short_code}
-                        else:
-                            short_code=await retry_ifnot_unq(hash_code,payload.url_link,session)
-
-                            newinsert= await save_url(session,user_id,original_url=payload.url_link,
-                                                  short_code=short_code,have_slug=False,
-                                                  exp_date=valid_date,password=payload.password)
-                            print('newinsert',newinsert)
-                            response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
+                            return {"original_url":code_exists.original_url,"short_url":code_exists.short_code,"pass":code_exists.password}
                         
-                    else:
-                        short_code=hash_code
-                        newinsert=await save_url(session,user_id,original_url=payload.url_link,
-                                                 short_code=short_code,have_slug=False,exp_date=valid_date,password=payload.password)
-                        print('newinsert',newinsert)
-                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
+                        raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail="Slug already exits, Retry")
+                         
+                    res=await save_url(session,user_id,original_url=payload.url_link,
+                                            short_code=short_code,have_slug=True,exp_date=valid_date,password=payload.password)
+                    return {"original_url":res.original_url,"short_url":res.short_code,"pass":res.password}
+                    
+                short_code=hash_code_without_entropy(payload.url_link)
+                code_exists=await check_code_exists(session,short_code)
+                print("code_exists",code_exists)
                 
-                return response
+                if code_exists:
+                    if code_exists.original_url==payload.url_link and code_exists.user_id==user_id:
+                        return {"original_url":code_exists.original_url,"short_url":code_exists,"pass":code_exists.password}
+                    
+                    short_code=await retry_ifnot_unq(short_code,payload.url_link,session)
+                
+                res=await save_url(session,user_id,original_url=payload.url_link,
+                                            short_code=short_code,have_slug=False,exp_date=valid_date,password=payload.password)
+                print('res',res)
+                return {"original_url":res.original_url,"short_url":res.short_code,"pass":res.password}
+
+            except HTTPException:
+                raise    
 
             except Exception as e:
-                 print("error",e)
-                 print("here exception ")
-                 raise HTTPException(status_code=400,detail=str(e))
+                raise HTTPException(status_code=500,detail=str(e))
 
 async def check_api_key(api_key:str=Header(...),session: AsyncSession = Depends(get_session)):
     if not api_key:

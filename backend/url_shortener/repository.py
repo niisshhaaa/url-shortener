@@ -43,10 +43,19 @@ async def del_scode(session,short_code):
 
 async def check_code_exists(session,short_code:str):
     result = await session.execute(
-       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id).where(URL_SHORTENER.short_code==short_code)
+       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id,URL_SHORTENER.password).where(URL_SHORTENER.short_code==short_code)
     )
     res=result.first()
-    return res if res else None
+    print("codeexists",res)
+    return res 
+
+async def check_url_exists(session,short_code:str):
+    result = await session.execute(
+       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==short_code)
+    )
+    res=result.first()
+    print("codeexists",res)
+    return res 
 
 async def retry_ifnot_unq(short_code:str,url,session):
     
@@ -63,7 +72,7 @@ async def retry_ifnot_unq(short_code:str,url,session):
        
 
         if attempts>=max_attempts:
-            raise HTTPException(status_code=500,detail='couldn''t generate unique code')
+            raise HTTPException(status_code=500,detail='Couldn''t generate unique short code,try custom code')
         
         
     short_code=hash_code_new
