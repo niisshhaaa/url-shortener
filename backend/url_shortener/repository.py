@@ -7,15 +7,20 @@ from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import  select, update ,delete
 from db.schema import URL_SHORTENER
+from db.db_connection import async_session
 
 async def load_url(short_code:str,session:AsyncSession):
    
         result = await session.execute(
-           select(URL_SHORTENER)
+           select(
+            URL_SHORTENER.original_url,
+            URL_SHORTENER.password,
+            URL_SHORTENER.expiry_date
+            )
            .where(URL_SHORTENER.short_code == short_code))
-        res=result.scalar_one_or_none()
+        res=result.one_or_none()
         print(res)
-        return res if res else None
+        return res 
 
 async def get_userid_scode(scode,session):
     stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at).where(URL_SHORTENER.short_code==scode)
@@ -109,5 +114,19 @@ async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool
     except Exception as e:
         await session.rollback()
         raise e
+    
+
+async def increment_stats(short_code: str) -> None:
+    async with async_session() as session:  
+        stmt = (
+            update(URL_SHORTENER)
+            .where(URL_SHORTENER.short_code == short_code)
+            .values(
+                visit_cnt       = URL_SHORTENER.visit_cnt + 1,
+                last_accessed_at= datetime.now()
+            )
+        )
+        await session.execute(stmt)
+        await session.commit()
         
         

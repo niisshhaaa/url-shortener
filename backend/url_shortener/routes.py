@@ -1,7 +1,7 @@
 import asyncio
 from typing import List, Optional, Union
 from fastapi import APIRouter, Header
-from fastapi import Request, Depends, HTTPException
+from fastapi import Request, Depends, HTTPException,BackgroundTasks
 from fastapi.params import Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, update
@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.common.utils import check_is_date_valid
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
 from db.schema import URL_SHORTENER
-from .repository import del_scode, get_userid_scode, load_url
+from .repository import del_scode, get_userid_scode, increment_stats, load_url
 from db.dependencies import get_session, get_session_factory
 from .models import  DateValidator, LongUrl, ShortenResponse
 from.services import process_url
@@ -62,38 +62,24 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
 
 
 @urls_router.get("/redirect")
-async def redirect_url(short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+async def redirect_url(short_code:str,background_tasks:BackgroundTasks,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
+    
     
     url=await load_url(short_code,db_session)
    
     if url is None:
        raise HTTPException(status_code=404, detail="URL not found")
     
-    if url.password and url.password!=password:
+    if url.password and password and url.password!=password:
         raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
     
     if url.expiry_date and url.expiry_date< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
     
-    # stmt=(
-    #     update(URL_SHORTENER)
-    #     .where(URL_SHORTENER.short_code == short_code)
-    #     .values(
-    #         last_accessed_at=datetime.now(),
-    #         visit_cnt=(URL_SHORTENER.visit_cnt + 1)
-    #     )
-    #     .returning(URL_SHORTENER.original_url,URL_SHORTENER.expiry_date,URL_SHORTENER.password)
-    # )
-    # await db_session.execute(stmt)
+
+    #  Kick off analytics increment after sending redirect
+    background_tasks.add_task(increment_stats, short_code)
     
-    
-    url.last_accessed_at=datetime.now()
-    url.visit_cnt += 1
-
-
-    await db_session.commit()
-
-    print("url",url)
     return RedirectResponse(url=url.original_url,status_code=307)
 
 
