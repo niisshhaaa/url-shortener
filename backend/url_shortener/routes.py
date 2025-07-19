@@ -11,14 +11,14 @@ from backend.url_shortener.dependencies import validate_batch_payload, validate_
 from db.schema import URL_SHORTENER
 from .repository import del_scode, get_userid_scode, load_url
 from db.dependencies import get_session, get_session_factory
-from .models import  DateValidator, LongUrl
+from .models import  DateValidator, LongUrl, ShortenResponse
 from.services import process_url
 from datetime import date, datetime
 
 urls_router=APIRouter()
 
 
-@urls_router.post("/shorten")
+@urls_router.post("/shorten",response_model=ShortenResponse)
 async def shorten_url(request:Request,payload:LongUrl=Depends(validate_payload),db_session=Depends(get_session)):
     user_identifier = request.state.user_identifier
 

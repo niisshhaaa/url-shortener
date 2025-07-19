@@ -1,5 +1,6 @@
 from datetime import datetime
 import hashlib
+import random
 from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import  AsyncSession
@@ -49,13 +50,16 @@ async def check_code_exists(session,short_code:str):
     print("codeexists",res)
     return res 
 
-async def check_url_exists(session,short_code:str):
-    result = await session.execute(
-       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==short_code)
-    )
-    res=result.first()
-    print("codeexists",res)
-    return res 
+async def new_code_with_entropy(url,session,min_length=5,max_length=8):
+    #Hash the url with the time entropy for randomness for same url 
+    full_hash_rand=hashlib.sha256(f"{url}{datetime.now()}".encode()).hexdigest()
+    length=random.randint(min_length,max_length)
+    short_hash=full_hash_rand[:length+1]
+    res= await check_code_exists(session,short_hash)
+    if res:
+        raise HTTPException(status_code=500,detail="Coudn''t generate unique short code,retry later or add custom code")
+    return short_hash
+
 
 async def retry_ifnot_unq(short_code:str,url,session):
     

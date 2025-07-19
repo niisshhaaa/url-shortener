@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from datetime import datetime ,timedelta
 
+from backend.url_shortener.repository import check_code_exists
+
 
 
 pass_context=CryptContext(schemes=['bcrypt'])
@@ -92,15 +94,10 @@ def random_code(min_length=5,max_length=8):
     return "".join(random.choices(chars,k=2))
 
 
-def hash_code_with_entropy(url,min_length=5,max_length=8):
-    #Hash the url with the time entropy for randomness for same url 
-    full_hash_rand=hashlib.sha256(f"{url}{datetime.now()}".encode()).hexdigest()
-    length=random.randint(min_length,max_length)
-    short_hash=full_hash_rand[:length+1]
-    return short_hash
 
-def hash_code_without_entropy(url):
-    full_hash_rand=hashlib.sha256(url.encode()).hexdigest()
+
+def hash_code_without_entropy(url,user_id):
+    full_hash_rand=hashlib.sha256(f"{url}{user_id}".encode()).hexdigest()
     short_hash=full_hash_rand[:7]
     return short_hash
 

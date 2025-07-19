@@ -13,6 +13,12 @@ class LongUrl(BaseModel):
     )
     password:Union[str,None]=None
 
+class ShortenResponse(BaseModel):
+    original_url: str
+    short_url:    str
+    password:     Optional[str]=None
+
+
 
 
 class DateValidator(BaseModel):
