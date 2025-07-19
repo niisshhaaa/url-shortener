@@ -49,10 +49,9 @@ async def get_idntier_api_key(api_key,session):
     result=await session.execute(stmt)
     return result.first()
 
-async def process_url(payload,session,get_user_id_reqst):
+async def process_url(payload,session,user_id:int):
             try:
                 valid_date=payload.exp_date
-                user_id_reqst=get_user_id_reqst.id
 
                 if payload.custom_slug:
                     slug_code=payload.custom_slug
@@ -60,7 +59,7 @@ async def process_url(payload,session,get_user_id_reqst):
                     if code_exists:
                         raise HTTPException(status_code=409,detail="Slug already exits, Retry")
                     short_code=slug_code
-                    newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,
+                    newinsert=await save_url(session,user_id,original_url=payload.url_link,
                                              short_code=short_code,have_slug=True,exp_date=valid_date,password=payload.password)
                     print('newinsert',newinsert)
                     response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
@@ -71,13 +70,13 @@ async def process_url(payload,session,get_user_id_reqst):
                     code_exists_scode=code_exists.short_code if code_exists else None
                     
                     if code_exists_scode:
-                        if code_exists.original_url==payload.url_link and code_exists.user_id==user_id_reqst:
+                        if code_exists.original_url==payload.url_link and code_exists.user_id==user_id:
                             short_code=hash_code
                             response={"original_url":code_exists.original_url,"short_url":short_code}
                         else:
                             short_code=await retry_ifnot_unq(hash_code,payload.url_link,session)
 
-                            newinsert= await save_url(session,user_id_reqst,original_url=payload.url_link,
+                            newinsert= await save_url(session,user_id,original_url=payload.url_link,
                                                   short_code=short_code,have_slug=False,
                                                   exp_date=valid_date,password=payload.password)
                             print('newinsert',newinsert)
@@ -85,7 +84,7 @@ async def process_url(payload,session,get_user_id_reqst):
                         
                     else:
                         short_code=hash_code
-                        newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,
+                        newinsert=await save_url(session,user_id,original_url=payload.url_link,
                                                  short_code=short_code,have_slug=False,exp_date=valid_date,password=payload.password)
                         print('newinsert',newinsert)
                         response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password}
@@ -93,7 +92,9 @@ async def process_url(payload,session,get_user_id_reqst):
                 return response
 
             except Exception as e:
-                 return {"url":payload.url_link,"short_code":None,"error":e}
+                 print("error",e)
+                 print("here exception ")
+                 raise HTTPException(status_code=400,detail=str(e))
 
 async def check_api_key(api_key:str=Header(...),session: AsyncSession = Depends(get_session)):
     if not api_key:

@@ -3,6 +3,7 @@ import socket
 import asyncio
 from datetime import date
 from functools import lru_cache
+from typing import List
 
 from fastapi import Body, HTTPException
 
@@ -15,7 +16,7 @@ async def validate_date(exp_date):
 
 
 # DNS resolver (sync + async)
-@lru_cache(maxsize=1024)
+# @lru_cache(maxsize=1024)
 def _sync_resolve(host: str) -> bool:
     """
     Pure DNS resolution. Returns True as long as the host
@@ -51,12 +52,37 @@ async def validate_payload(
     # Async DNS check
     if not await _async_resolve(parsed_url.host):
         raise HTTPException(400, f"Host {parsed_url.host!r} could not be resolved")
-    # Replace the raw string with the parsed HttpUrl
-    payload.url_link = parsed_url
-
+    
+    payload.url_link=str(payload.url_link)
+    
     # Validate the date if provided
     if payload.exp_date:
         await validate_date(payload.exp_date)
 
     # Return the validated payload
     return payload
+
+
+async def validate_batch_payload(
+    items: List[LongUrl] = Body(
+        ...,
+        description="Batch payload for creating multiple short URLs",
+    )
+) -> List[LongUrl]:
+    validated = []
+    errors = []
+    for idx, item in enumerate(items):
+        try:
+            # call your existing single‑item validator:
+            valid_item = await validate_payload(item)  
+            validated.append(valid_item)
+        except HTTPException as e:
+            # collect which index failed and why
+            errors.append({"index": idx, "detail": e.detail})
+    if errors:
+        # If you want to fail the entire batch on first error, just:
+        # raise HTTPException(422, detail=errors)
+        # Or return successes/failures separately—up to you.
+        raise HTTPException(422, detail={"batch_errors": errors})
+    return validated
+

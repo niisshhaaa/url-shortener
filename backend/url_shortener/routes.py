@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.common.utils import check_is_date_valid
-from backend.url_shortener.dependencies import validate_payload
+from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
 from db.schema import URL_SHORTENER
 from .repository import del_scode, get_userid_scode, load_url
 from db.dependencies import get_session, get_session_factory
@@ -21,13 +21,15 @@ urls_router=APIRouter()
 @urls_router.post("/shorten")
 async def shorten_url(request:Request,payload:LongUrl=Depends(validate_payload),db_session=Depends(get_session)):
     user_identifier = request.state.user_identifier
+
+    print(user_identifier)
    
     res=await process_url(payload,db_session,user_identifier.id) 
     return res
 
 
 @urls_router.post("/shorten/batch")
-async def shorten_url(request:Request,payload:List[LongUrl],session_factory=Depends(get_session_factory)): 
+async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_batch_payload),session_factory=Depends(get_session_factory)): 
 
     user_identifier = request.state.user_identifier
 
@@ -40,12 +42,17 @@ async def shorten_url(request:Request,payload:List[LongUrl],session_factory=Depe
     # print(results)
 
     #parallel approach (for small batch sizes no clear performance difference)
-    async def _process_single(item:LongUrl):
+    async def _process_single(idx:int,item:LongUrl):
         async with session_factory() as session:
-            return await process_url(item, session, user_identifier)
+                try:
+                    res=await process_url(item, session, user_identifier.id)
+                    return {"index": idx, "result": res}
+                except Exception as e:
+                    return {"index": idx, "error": str(e)}
+
  
     try:
-        results=await asyncio.gather(*[_process_single(item) for item in payload])
+        results=await asyncio.gather(*[_process_single(idx,item) for idx,item in enumerate(payload)])
         print(results)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing batch: {str(e)}")
