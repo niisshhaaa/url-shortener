@@ -18,3 +18,5 @@ config/blacklist.json
 experiments/
 
 experimental/
+
+.vscode
