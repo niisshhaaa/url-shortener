@@ -1,6 +1,6 @@
 from datetime import datetime
 import logging,time
-from fastapi import HTTPException, Request, Response,status,Depends
+from fastapi import HTTPException, Request, Response,status
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
 from backend.common.repository import get_idntier_api_key
@@ -36,7 +36,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             f"UA={ua} "
         )
         logger.info(log_line)
-        print(log_line)  # For debugging purposes, you can also print to console
 
         return response
 
@@ -47,6 +46,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.session = session
         self.paths = paths
+
 
     async def dispatch(self, request: Request, call_next):
         if not any(request.url.path.startswith(p) for p in self.paths):
@@ -100,7 +100,7 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
 
 class BlacklistMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        
+       
         # considering if usually IP's blocked, so retreiving api_key seprately from Authorization headers
         api_key = request.headers.get("api-key", "")
         
@@ -114,6 +114,7 @@ class BlacklistMiddleware(BaseHTTPMiddleware):
 
 class TimingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
+      
         # 1. Record start time in ns
         start_ns = time.perf_counter_ns()
 

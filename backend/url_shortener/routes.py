@@ -95,7 +95,7 @@ async def update_code(
     user_identifier = request.state.user_identifier
     user_id=user_identifier.id 
 
-    if not (expiry_date and password):
+    if not expiry_date and not password:
         return {"message":"Please provide fields to update"}
 
     code=await get_userid_scode(short_code,db_session)
@@ -143,6 +143,7 @@ async def latest_urls(
 
 @urls_router.get("/health")
 async def health_check(db_session:AsyncSession=Depends(get_session)):
+    print(" health endpoint called")
     try:
         stmt=text("SELECT 1")  
         await db_session.execute(stmt)
