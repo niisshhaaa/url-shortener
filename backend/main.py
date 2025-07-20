@@ -31,7 +31,7 @@ async def app_lifespan(app:FastAPI):
      await async_engine.dispose()
 
 
-init_sentry()
+# init_sentry()
 
 app= FastAPI(lifespan=app_lifespan)
 
@@ -43,14 +43,12 @@ app= FastAPI(lifespan=app_lifespan)
 
 app.include_router(urls_router)
 # app.include_router(sentry_router)
-# app.add_middleware(RequestLoggingMiddleware) 
-
 
 app.add_middleware(AuthorizationMiddleware,paths=["/shorten/batch"])
 app.add_middleware(AuthenticationMiddleware, session=async_session,paths=["/shorten", "/shorten/batch","/shorten/" ,"/urls"])
 app.add_middleware(BlacklistMiddleware)
+# app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(TimingMiddleware)
-
 
 
 # app.add_middleware(SentryAsgiMiddleware)
