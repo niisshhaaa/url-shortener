@@ -1,4 +1,4 @@
-import json
+import json,aiofiles
 import logging
 from pathlib import Path
 from typing import Set
@@ -7,13 +7,14 @@ logger = logging.getLogger("blacklist")
 BLACKLIST_PATH = Path("config/blacklist.json")
 
 
-def load_blacklist(blocked_keys) -> None:
+async def load_blacklist(blocked_keys) -> None:
     """
     Load the blacklist JSON into the global `blocked_keys` set.
     Expects the file to contain a JSON array of strings.
     """
     try:
-        raw = BLACKLIST_PATH.read_text()
+        async with aiofiles.open(BLACKLIST_PATH, mode="r") as f:
+            raw = await f.read()
         data = json.loads(raw)
         if not isinstance(data, list):
             raise ValueError("Expected a JSON array of strings")
