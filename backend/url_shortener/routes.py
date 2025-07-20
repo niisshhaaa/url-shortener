@@ -4,15 +4,12 @@ from fastapi import APIRouter, Header
 from fastapi import Request, Depends, HTTPException,BackgroundTasks
 from fastapi.params import Query
 from fastapi.responses import RedirectResponse
-from pydantic import Field
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
-from backend.common.utils import check_is_date_valid
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
-from db.schema import URL_SHORTENER
-from .repository import del_scode, get_urls, get_userid_scode, increment_stats, load_url, update_code_db
+from .repository import  get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
-from .models import  DateValidator, LongUrl, ShortenResponse
+from .models import  LongUrl, ShortenResponse
 from.services import process_url
 from datetime import date, datetime
 
@@ -32,7 +29,6 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
 
     user_identifier = request.state.user_identifier
 
-    print("Enterprise tier user")
     #sequential approach
     # try:
     #     results=[await process_url(payload_item,session,user_identifier) for payload_item in payload]
@@ -56,8 +52,8 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing batch: {str(e)}")
 
-    successes=[result for result in results if result.get("error", None) is None]
-    failures=[result for result in results if result.get("error", None) is not None]
+    successes=[result for result in results if "result" in result]
+    failures=[result for result in results if "error" in result]
 
     return {"successes": successes, "failures": failures}  
 
@@ -126,7 +122,35 @@ async def get_all_urls_for_user(
     user_id=user_identifier.id 
 
     urls=await get_urls(db_session,user_id,limit,page)
-    return urls    
+
+    if not urls:
+        return {"message":"No urls found"}
+    return urls   
+
+
+
+@urls_router.get("/latest-urls")
+async def latest_urls(
+    limit: int = Query(10, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    db_session: AsyncSession = Depends(get_session),
+):
+    records=await recent_urls(db_session,limit,offset=(page-1)*limit)
+    if not records:
+        raise HTTPException(404, detail="No URLs found")
+    return records
+
+
+@urls_router.get("/health")
+async def health_check(db_session:AsyncSession=Depends(get_session)):
+    try:
+        stmt=text("SELECT 1")  
+        await db_session.execute(stmt)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+ 
 
 
 
