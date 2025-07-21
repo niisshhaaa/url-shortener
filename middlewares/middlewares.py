@@ -5,6 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import JSONResponse
 from backend.common.repository import get_idntier_api_key
 from backend.auth.dependencies import Authentication
+from config.blacklist import BLACKLIST_PATH, load_blacklist
 
 
 # Configure Python’s logging to write to a file
@@ -130,3 +131,40 @@ class TimingMiddleware(BaseHTTPMiddleware):
         response.headers["X-Process-Time-Ms"] = f"{elapsed_ms:.3f}"
 
         return response
+    
+
+class LazyReloadBlacklistMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app):
+        super().__init__(app)
+        
+    async def _reload_from_disk(self,app_state):
+        """
+        Only re-read the JSON if the mtime has changed,
+        but do that file-read asynchronously.
+        """
+        try:
+            mtime = BLACKLIST_PATH.stat().st_mtime
+        except FileNotFoundError:
+            mtime = 0.0
+
+        if mtime and mtime > app_state._last_mtime:
+            print("reload happening")
+            await load_blacklist(app_state.blocked_keys)
+            app_state._last_mtime = mtime
+
+    async def dispatch(self, request: Request, call_next):
+
+        
+        app_state=request.app.state
+        
+        await self._reload_from_disk(app_state)
+       
+        # considering if usually IP's blocked, so retreiving api_key seprately from Authorization headers
+        api_key = request.headers.get("api-key", "")
+        
+        if  api_key in request.app.state.blocked_keys:
+            return JSONResponse(
+                {"detail": "Please try after some time"},
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        return await call_next(request)
