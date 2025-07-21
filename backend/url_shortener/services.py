@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import  AsyncSession
 from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from db.dependencies import get_session
-from backend.url_shortener.utils import  hash_code_without_entropy, is_valid_url
+from backend.url_shortener.utils import  hash_code_without_entropy
 
 from db.schema import  Users
 

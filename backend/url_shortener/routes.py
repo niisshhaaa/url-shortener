@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
-from .repository import  get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
+from .repository import  del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
 from .models import  LongUrl, ShortenResponse
 from.services import process_url
@@ -65,14 +65,14 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,password:
     url=await load_url(short_code,db_session)
    
     if url is None:
-       raise HTTPException(status_code=404, detail="URL not found")
+       raise HTTPException(status_code=404, detail="Code not found or deleted")
     
-    if url.password and password and url.password!=password:
+    if url.password and password and url.password!=password:  #passwords should certainly be hashed in auth scenarios  
         raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
     
     if url.expiry_date and url.expiry_date< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
-    
+
 
     #  Kick off analytics increment after sending redirect in same thread
     background_tasks.add_task(increment_stats, short_code)
@@ -100,13 +100,10 @@ async def update_code(
 
     code=await get_userid_scode(short_code,db_session)
     if not code:
-        raise HTTPException(status_code=404, detail="Short code not found")
+        raise HTTPException(status_code=404, detail="Short code not found or deleted")
     
     if code.user_id!=user_id:
         raise HTTPException(status_code=403,detail="Cannot update ,code belongs to another user")
-    
-    if code.deleted_at:
-        raise HTTPException(status_code=410,detail="Code already deleted")
     
     res=await update_code_db(db_session,code.short_code,expiry_date,password)
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":password,"message":"updated short code!"}
@@ -136,10 +133,19 @@ async def latest_urls(
     db_session: AsyncSession = Depends(get_session),
 ):
     records=await recent_urls(db_session,limit,offset=(page-1)*limit)
+    print("records",records)
     if not records:
         raise HTTPException(404, detail="No URLs found")
     return records
 
+
+@urls_router.delete("/shorten/{short_code}")
+async def remove_scode(short_code:str,db_session:AsyncSession=Depends(get_session)):
+   
+    await del_scode(db_session,short_code)
+    return {"message": f"{short_code} short code has been deleted"}
+    
+    
 
 @urls_router.get("/health")
 async def health_check(db_session:AsyncSession=Depends(get_session)):
