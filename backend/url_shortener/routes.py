@@ -143,7 +143,6 @@ async def latest_urls(
 
 @urls_router.get("/health")
 async def health_check(db_session:AsyncSession=Depends(get_session)):
-    print(" health endpoint called")
     try:
         stmt=text("SELECT 1")  
         await db_session.execute(stmt)

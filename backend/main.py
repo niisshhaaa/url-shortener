@@ -1,6 +1,6 @@
 from typing import Set
-from config.blacklist import load_blacklist
-from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware, TimingMiddleware
+from config.blacklist import BLACKLIST_PATH, load_blacklist
+from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware, LazyReloadBlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware, TimingMiddleware
 from db.db_connection import async_engine
 from error_tracking.routes import sentry_router
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
@@ -16,8 +16,9 @@ blocked_keys: Set[str] = set()
 @asynccontextmanager  
 async def app_lifespan(app:FastAPI):
 
-     load_blacklist(blocked_keys)
+     await load_blacklist(blocked_keys)
      app.state.blocked_keys = blocked_keys
+     app.state._last_mtime=BLACKLIST_PATH.stat().st_mtime
 
      # ORM only maps schema to python objects , so create the schema(tables) for deploying the api 
      # or add alembic update in start command of app service on deployed platform 
@@ -46,7 +47,7 @@ app.include_router(urls_router)
 
 app.add_middleware(AuthorizationMiddleware,paths=["/shorten/batch"])
 app.add_middleware(AuthenticationMiddleware, session=async_session,paths=["/shorten", "/shorten/batch","/shorten/" ,"/urls"])
-app.add_middleware(BlacklistMiddleware)
+app.add_middleware(LazyReloadBlacklistMiddleware)
 # app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(TimingMiddleware)
 

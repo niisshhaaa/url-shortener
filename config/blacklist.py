@@ -25,7 +25,6 @@ async def load_blacklist(blocked_keys) -> None:
         logger.info(f"Loaded {len(blocked_keys)} blocked API keys.")
     except FileNotFoundError:
         logger.warning(f"{BLACKLIST_PATH} not found; no keys blocked.")
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in {BLACKLIST_PATH}: {e}")
-    except ValueError as e:
-        logger.error(f"Bad format in {BLACKLIST_PATH}: {e}")
+    except (json.JSONDecodeError, ValueError):
+        # malformed → keep the old set
+        pass
