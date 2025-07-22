@@ -54,7 +54,7 @@ async def process_url(payload,session,user_id:int):
                 raise    
 
             except Exception as e:
-                raise HTTPException(status_code=400,detail="something")
+                raise HTTPException(status_code=400,detail=str(e))
 
 async def check_api_key(api_key:str=Header(...),session: AsyncSession = Depends(get_session)):
     if not api_key:

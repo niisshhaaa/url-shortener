@@ -24,7 +24,7 @@ async def load_url(short_code:str,session:AsyncSession):
         return res 
 
 async def get_userid_scode(scode,session):
-    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode,URL_SHORTENER.deleted_at.is_(None))
+    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.password,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode,URL_SHORTENER.deleted_at.is_(None))
     result=await session.execute(stmt)
     return result.first() if result else None
 
@@ -119,7 +119,7 @@ async def update_code_db(session,code,expiry_date,password):
            URL_SHORTENER.deleted_at.is_(None))
     .values(expiry_date=expiry_date,
             password=password)
-    .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date)
+    .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date,URL_SHORTENER.password)
     )
     result=await session.execute(stmt)
     res=result.first() 

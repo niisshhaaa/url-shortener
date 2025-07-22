@@ -3,9 +3,11 @@ import socket
 import asyncio
 from datetime import date
 from functools import lru_cache
-from typing import List
+from typing import Any, List
 
 from fastapi import Body, HTTPException
+import pydantic
+from sqlalchemy import Tuple
 
 
 from backend.url_shortener.models import LongUrl
@@ -29,6 +31,7 @@ def _sync_resolve(host: str) -> bool:
     except socket.gaierror:
         return False
 
+#ignore dns check for now
 async def _async_resolve(host: str) -> bool:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _sync_resolve, host)
@@ -63,23 +66,72 @@ async def validate_payload(
     return payload
 
 
+
+
 async def validate_batch_payload(
-    items: List[LongUrl] = Body(
+    raw_items: List[Any] = Body(
         ...,
         description="Batch payload for creating multiple short URLs",
     )
-) -> List[LongUrl]:
-    validated = []
-    errors = []
-    for idx, item in enumerate(items):
-        try:
-            # call single‑item validator:
-            valid_item = await validate_payload(item)  
-            validated.append(valid_item)
-        except HTTPException as e:
-            # collect which index failed and why
-            errors.append({"index": idx, "detail": e.detail})
-    if errors:
-        raise HTTPException(422, detail={"batch_errors": errors})
-    return validated
+) :
+    """
+    Returns (validated_items, failures). Raises 422 if all items failed.
+    """
+    validated: List[tuple[int,LongUrl]] = []
+    failures: List[dict] = []
 
+    for idx, raw in enumerate(raw_items):
+        # --- schema validation ---
+        try:
+            item = LongUrl.model_validate(raw)
+        except pydantic.ValidationError as ve:
+            failures.append({
+                "index": idx,
+                "error_type": "schema",
+                "details": ve.errors()[0]["msg"]
+            })
+            continue
+
+        # --- domain validation ---
+        try:
+            good = await validate_payload(item)
+        except HTTPException as he:
+            failures.append({
+                "index": idx,
+                "error_type": "domain",
+                "details": he.detail
+            })
+            continue
+
+        validated.append((idx, good))
+       
+
+    # if *every* item failed, reject the batch
+    if failures and not validated:
+        raise HTTPException(
+            status_code=422,
+            detail={"failures": failures}
+        )
+
+    return validated, failures
+
+
+# async def validate_batch_payload(
+#     items: List[LongUrl] = Body(
+#         ...,
+#         description="Batch payload for creating multiple short URLs",
+#     )
+# ) -> List[LongUrl]:
+#     validated = []
+#     errors = []
+#     for idx, item in enumerate(items):
+#         try:
+#             # call single‑item validator:
+#             valid_item = await validate_payload(item)  
+#             validated.append(valid_item)
+#         except HTTPException as e:
+#             # collect which index failed and why
+#             errors.append({"index": idx, "detail": e.detail})
+#     if errors:
+#         raise HTTPException(422, detail={"batch_errors": errors})
+#     return validated

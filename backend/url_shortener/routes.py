@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
 from .repository import  del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
-from .models import  LongUrl, ShortenResponse
+from .models import  LongUrl, ShortenResponse, UpdateShortUrl
 from.services import process_url
 from datetime import date, datetime
 
@@ -29,6 +29,8 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
 
     user_identifier = request.state.user_identifier
 
+    valids_with_idx, failures = payload
+
     #sequential approach
     # try:
     #     results=[await process_url(payload_item,session,user_identifier) for payload_item in payload]
@@ -47,28 +49,31 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
 
  
     try:
-        results=await asyncio.gather(*[_process_single(idx,item) for idx,item in enumerate(payload)])
+        results=await asyncio.gather(*[_process_single(idx,item) for idx,item in valids_with_idx])
         print(results)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing batch: {str(e)}")
 
     successes=[result for result in results if "result" in result]
-    failures=[result for result in results if "error" in result]
+    failures=failures or [result for result in results if "error" in result] 
 
     return {"successes": successes, "failures": failures}  
 
 
 @urls_router.get("/redirect")
-async def redirect_url(short_code:str,background_tasks:BackgroundTasks,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
-    
+async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
+                    password:Optional[str]=Query(None),
+                    db_session:AsyncSession=Depends(get_session)):
     
     url=await load_url(short_code,db_session)
+
+    print("url",url)
    
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
     
-    if url.password and password and url.password!=password:  #passwords should certainly be hashed in auth scenarios  
-        raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
+    if url.password and url.password!=password:  #passwords should certainly be hashed in auth scenarios  
+        raise HTTPException(status_code=403,detail="Invalid password as short code is protected")
     
     if url.expiry_date and url.expiry_date< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
@@ -84,19 +89,12 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,password:
 async def update_code(
     request:Request,
     short_code:str,
-    expiry_date: Optional[date] = Query(
-        None,
-        description="New expiration date in YYYY-MM-DD ",
-        example="2025-08-15",
-    ),
-    password:Optional[str]=None,
+    patch_payload:UpdateShortUrl,
     db_session:AsyncSession=Depends(get_session)):
 
     user_identifier = request.state.user_identifier
     user_id=user_identifier.id 
 
-    if not expiry_date and not password:
-        return {"message":"Please provide fields to update"}
 
     code=await get_userid_scode(short_code,db_session)
     if not code:
@@ -105,8 +103,11 @@ async def update_code(
     if code.user_id!=user_id:
         raise HTTPException(status_code=403,detail="Cannot update ,code belongs to another user")
     
-    res=await update_code_db(db_session,code.short_code,expiry_date,password)
-    return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":password,"message":"updated short code!"}
+    if code.password and code.password!=patch_payload.password:    
+        raise HTTPException(status_code=403,detail="Invalid password as short code is protected")
+    
+    res=await update_code_db(db_session,code.short_code,patch_payload.expiry_date,patch_payload.new_password)
+    return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":res.password,"message":"updated short code!"}
 
 
 @urls_router.get("/urls")
@@ -121,7 +122,7 @@ async def get_all_urls_for_user(
     urls=await get_urls(db_session,user_id,limit,page)
 
     if not urls:
-        return {"message":"No urls found"}
+        raise HTTPException(status_code=403,detail="Invalid auth or urls not found")
     return urls   
 
 
@@ -138,7 +139,7 @@ async def latest_urls(
         raise HTTPException(404, detail="No URLs found")
     return records
 
-
+#Add password check in this as well
 @urls_router.delete("/shorten/{short_code}")
 async def remove_scode(short_code:str,db_session:AsyncSession=Depends(get_session)):
    
