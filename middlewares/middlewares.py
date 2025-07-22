@@ -93,7 +93,7 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         if identifier.tier_level != 'ENTERPRISE':
             return JSONResponse(
                 {"detail": "Invalid request for Hobby tier without pricing"},
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_401_UNAUTHORIZED,
             )
             
         return await call_next(request)

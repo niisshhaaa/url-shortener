@@ -7,9 +7,6 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 
-
-
-
 @pytest.mark.anyio
 async def test_post():
     async with LifespanManager(app):

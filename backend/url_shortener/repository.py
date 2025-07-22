@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import  desc, select, update
+from sqlalchemy import  delete, desc, func, select, update
 from db.schema import URL_SHORTENER
 from db.db_connection import async_session
 
@@ -17,23 +17,27 @@ async def load_url(short_code:str,session:AsyncSession):
             URL_SHORTENER.password,
             URL_SHORTENER.expiry_date
             )
-           .where(URL_SHORTENER.short_code == short_code))
+           .where(URL_SHORTENER.short_code == short_code,
+           URL_SHORTENER.deleted_at.is_(None)))
         res=result.one_or_none()
         print(res)
         return res 
 
 async def get_userid_scode(scode,session):
-    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode)
+    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.password,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode,URL_SHORTENER.deleted_at.is_(None))
     result=await session.execute(stmt)
     return result.first() if result else None
 
 
 async def check_code_exists(session,short_code:str):
     result = await session.execute(
-       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id,URL_SHORTENER.password).where(URL_SHORTENER.short_code==short_code)
+       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code,URL_SHORTENER.user_id,URL_SHORTENER.password).
+       where(URL_SHORTENER.short_code==short_code,
+             URL_SHORTENER.deleted_at.is_(None))
     )
     res=result.first()
     return res 
+
 
 async def new_code_with_entropy(url,session,min_length=5,max_length=8):
     #Hash the url with the time entropy for randomness for same url 
@@ -96,7 +100,8 @@ async def increment_stats(short_code: str) -> None:
     async with async_session() as session:  
         stmt = (
             update(URL_SHORTENER)
-            .where(URL_SHORTENER.short_code == short_code)
+            .where(URL_SHORTENER.short_code == short_code,
+                   URL_SHORTENER.deleted_at.is_(None))
             .values(
                 visit_cnt       = URL_SHORTENER.visit_cnt + 1,
                 last_accessed_at= datetime.now()
@@ -110,10 +115,11 @@ async def update_code_db(session,code,expiry_date,password):
     
     stmt=(
     update(URL_SHORTENER)
-    .where(URL_SHORTENER.short_code==code)
+    .where(URL_SHORTENER.short_code==code,
+           URL_SHORTENER.deleted_at.is_(None))
     .values(expiry_date=expiry_date,
             password=password)
-    .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date)
+    .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date,URL_SHORTENER.password)
     )
     result=await session.execute(stmt)
     res=result.first() 
@@ -124,18 +130,52 @@ async def update_code_db(session,code,expiry_date,password):
     return res
         
 async def get_urls(session,user_id,limit,page):
-    stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==user_id).offset((page-1)*limit).limit(limit)
+    stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==user_id,
+        URL_SHORTENER.deleted_at.is_(None)
+        ).offset((page-1)*limit).limit(limit)
     res=await session.execute(stmt)
     return res.scalars().all()
 
 async def recent_urls(session,limit,offset):
     stmt = (
-        select(URL_SHORTENER)
-        .order_by(desc(URL_SHORTENER.created_at))
+        select(
+            URL_SHORTENER.id,
+            URL_SHORTENER.original_url,
+            URL_SHORTENER.short_code,
+            URL_SHORTENER.created_at,
+            URL_SHORTENER.visit_cnt,
+        )
+        .where(URL_SHORTENER.deleted_at.is_(None))              
+        .order_by(desc(URL_SHORTENER.created_at))             
         .limit(limit)
         .offset(offset)
     )
 
     result = await session.execute(stmt)
-    records = result.scalars().all()
-   
+    rows = result.all()  # List[Row] tuples with named attributes
+
+    return [
+        {
+            "id":           row.id,
+            "original_url": row.original_url,
+            "short_code":   row.short_code,
+            "created_at":   row.created_at,
+            "visit_cnt":    row.visit_cnt,
+        }
+        for row in rows
+    ]
+
+async def del_scode(session,short_code):
+    """Soft delete a short code by setting deleted_at timestamp"""
+    result = await session.execute(
+        update(URL_SHORTENER)
+        .where(URL_SHORTENER.short_code == short_code,
+               URL_SHORTENER.deleted_at.is_(None))
+        .values(deleted_at=func.now())
+    )
+
+    # Check if any rows were updated
+    if result.rowcount == 0: 
+        raise HTTPException(status_code=404, detail="Short code not found or already deleted")
+    await session.commit()
+    
