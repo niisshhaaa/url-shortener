@@ -59,8 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Security
 
 * Authentication & Authorization middlewares enforce per‑user and role‑based access controls
-* Deprecated v1 endpoints generate `Warning: 299` headers until removal on 2025‑09‑01
-
 ---
 
 ## [1.0.0] – 2025‑01‑15
