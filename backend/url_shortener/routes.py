@@ -114,7 +114,7 @@ async def update_code(
 async def get_all_urls_for_user(
     request:Request,db_session:AsyncSession=Depends(get_session),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=20),
+    limit: int = Query(10, ge=1, le=100),
     ):
     user_identifier = request.state.user_identifier
     user_id=user_identifier.id 
