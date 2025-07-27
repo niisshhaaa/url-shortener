@@ -20,7 +20,6 @@ async def load_url(short_code:str,session:AsyncSession):
            .where(URL_SHORTENER.short_code == short_code,
            URL_SHORTENER.deleted_at.is_(None)))
         res=result.one_or_none()
-        print(res)
         return res 
 
 async def get_userid_scode(scode,session):

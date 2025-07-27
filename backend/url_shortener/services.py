@@ -25,15 +25,16 @@ async def process_url(payload,session,user_id:int):
                 if payload.custom_slug:
                     short_code=payload.custom_slug
                     code_exists=await check_code_exists(session,short_code)
+                    print("code_exists_pass",code_exists.password)
                     if code_exists:
                         if code_exists.original_url==payload.url_link and code_exists.user_id==user_id:
-                            return {"original_url":code_exists.original_url,"short_url":code_exists.short_code,"pass":code_exists.password}
+                            return {"original_url":code_exists.original_url,"short_url":code_exists.short_code,"password":code_exists.password}
                         
                         raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail="Slug already exits, Retry")
                          
                     res=await save_url(session,user_id,original_url=payload.url_link,
                                             short_code=short_code,have_slug=True,exp_date=valid_date,password=payload.password)
-                    return {"original_url":res.original_url,"short_url":res.short_code,"pass":res.password}
+                    return {"original_url":res.original_url,"short_url":res.short_code,"password":res.password}
                     
                 short_code=hash_code_without_entropy(payload.url_link,user_id)
                 code_exists=await check_code_exists(session,short_code)
@@ -41,14 +42,14 @@ async def process_url(payload,session,user_id:int):
                 
                 if code_exists:
                     if code_exists.user_id==user_id and code_exists.original_url==payload.url_link :
-                        return {"original_url":code_exists.original_url,"short_url":code_exists.short_code,"pass":code_exists.password}
+                        return {"original_url":code_exists.original_url,"short_url":code_exists.short_code,"password":code_exists.password}
                     
                     short_code=await new_code_with_entropy(payload.url_link,session)
                 
                 res=await save_url(session,user_id,original_url=payload.url_link,
                                             short_code=short_code,have_slug=False,exp_date=valid_date,password=payload.password)
                 print('res',res)
-                return {"original_url":res.original_url,"short_url":res.short_code,"pass":res.password}
+                return {"original_url":res.original_url,"short_url":res.short_code,"password":res.password}
 
             except HTTPException:
                 raise    

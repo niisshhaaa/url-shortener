@@ -60,27 +60,12 @@ async def test_update_expiry_only(ac_client):
 # async def test_update_password_only(ac_client):
 #     post = await ac_client.post('/shorten', json={"url_link": "https://example5.com"}, headers={"Authorization": f"Bearer {UPDATE_USER}" })
 #     scode = post.json()["short_url"]
-#     resp = await ac_client.patch(f'/shorten/{scode}', json={"new_password": "pass56789"}, headers={"Authorization": f"Bearer {UPDATE_USER}" })
+#     resp = await ac_client.patch(f'/shorten/{scode}', json={"password": "pass56789"}, headers={"Authorization": f"Bearer {UPDATE_USER}" })
 #     assert resp.status_code == 200
 #     # data = resp.json()
 #     # assert data["password"] == "pass12345"
 #     # assert data["short_code"] == scode
 
-@pytest.mark.anyio
-async def test_update_without_password(ac_client):
-    post = await ac_client.post('/shorten', json={"url_link": "https://example5.com"}, headers={"Authorization": f"Bearer {UPDATE_USER}" })
-    scode = post.json()["short_url"]
-    resp = await ac_client.patch(f'/shorten/{scode}', json={"new_password": "pass12345"}, headers={"Authorization": f"Bearer {UPDATE_USER}" })
-    assert resp.status_code == 403
-    assert resp.json()=={"detail":"Invalid password as short code is protected"}
-
-@pytest.mark.anyio
-async def test_update_wrong_password(ac_client):
-    post = await ac_client.post('/shorten', json={"url_link": "https://example5.com"}, headers={"Authorization": f"Bearer {UPDATE_USER}" })
-    scode = post.json()["short_url"]
-    resp = await ac_client.patch(f'/shorten/{scode}', json={"password":"wrong","new_password": "pass12345"}, headers={"Authorization": f"Bearer {UPDATE_USER}" })
-    assert resp.status_code == 403
-    assert resp.json()=={"detail":"Invalid password as short code is protected"}
 
 # @pytest.mark.anyio
 # async def test_update_both_fields(ac_client):
@@ -89,7 +74,7 @@ async def test_update_wrong_password(ac_client):
 #     scode = post.json()["short_url"]
 #     resp = await ac_client.patch(
 #         f'/shorten/{scode}',
-#         json={"expiry_date": date, "password": "pass56789","new_password":"pass56789"},
+#         json={"expiry_date": date, "password": "pass56789"},
 #         headers={"Authorization": f"Bearer {UPDATE_USER}" }
 #     )
 #     assert resp.status_code == 200

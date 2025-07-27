@@ -36,12 +36,10 @@ class UpdateShortUrl(BaseModel):
         example="2025-08-15",
     )
     password: Optional[str] = Field(None,
-    description="Must match existing password, if code is protected"
+        min_length=6,
+        max_length=15
     )
-    new_password:     Optional[str] = Field(
-        None, min_length=6,
-        description="New password to set (or null to remove password)"
-    )
+    
 
 
 

@@ -21,6 +21,7 @@ async def shorten_url(request:Request,payload:LongUrl=Depends(validate_payload),
     user_identifier = request.state.user_identifier
 
     res=await process_url(payload,db_session,user_identifier.id) 
+    print("res",res)
     return res
 
 
@@ -66,8 +67,6 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     db_session:AsyncSession=Depends(get_session)):
     
     url=await load_url(short_code,db_session)
-
-    print("url",url)
    
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
@@ -91,7 +90,6 @@ async def update_code(
     short_code:str,
     patch_payload:UpdateShortUrl,
     db_session:AsyncSession=Depends(get_session)):
-
     user_identifier = request.state.user_identifier
     user_id=user_identifier.id 
 
@@ -103,10 +101,7 @@ async def update_code(
     if code.user_id!=user_id:
         raise HTTPException(status_code=403,detail="Cannot update ,code belongs to another user")
     
-    if code.password and code.password!=patch_payload.password:    
-        raise HTTPException(status_code=403,detail="Invalid password as short code is protected")
-    
-    res=await update_code_db(db_session,code.short_code,patch_payload.expiry_date,patch_payload.new_password)
+    res=await update_code_db(db_session,code.short_code,patch_payload.expiry_date,patch_payload.password)
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":res.password,"message":"updated short code!"}
 
 
@@ -134,12 +129,12 @@ async def latest_urls(
     db_session: AsyncSession = Depends(get_session),
 ):
     records=await recent_urls(db_session,limit,offset=(page-1)*limit)
-    print("records",records)
+   
     if not records:
         raise HTTPException(404, detail="No URLs found")
     return records
 
-#Add password check in this as well
+
 @urls_router.delete("/shorten/{short_code}")
 async def remove_scode(short_code:str,db_session:AsyncSession=Depends(get_session)):
    

@@ -20,3 +20,5 @@ experiments/
 experimental/
 
 .vscode
+
+postman_collection/
