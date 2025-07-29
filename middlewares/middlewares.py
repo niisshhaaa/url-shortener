@@ -128,7 +128,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
         elapsed_ms = elapsed_ns / 1_000_000  # convert to milliseconds
 
         # 4. Add to response headers
-        response.headers["X-Process-Time-Ms"] = f"{elapsed_ms:.3f}"
+        response.headers["X-Process-Time"] = f"{elapsed_ms:.3f}"
 
         return response
     

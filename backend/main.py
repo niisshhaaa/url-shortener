@@ -13,6 +13,10 @@ from backend.url_shortener.routes import urls_router
 
 blocked_keys: Set[str] = set()
 
+version="v2"
+
+version_prefix=f"/api/{version}"
+
 @asynccontextmanager  
 async def app_lifespan(app:FastAPI):
 
@@ -42,7 +46,7 @@ app= FastAPI(lifespan=app_lifespan)
 # app.add_middleware(SlowAPIMiddleware)
 # register_rate_limit_err_handler(app)
 
-app.include_router(urls_router)
+app.include_router(urls_router,prefix=f"{version_prefix}")
 # app.include_router(sentry_router)
 
 app.add_middleware(AuthorizationMiddleware,paths=["/shorten/batch"])
