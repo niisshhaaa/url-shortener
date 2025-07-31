@@ -61,9 +61,12 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 {"detail": "Missing or Invalid Auth Headers"},
                 status_code=status.HTTP_401_UNAUTHORIZED,
             )
+        
+        print("hereee")
 
         async with self.session() as session:
             identifier = await get_idntier_api_key(api_key, session)
+            print("identifier",identifier)
             if not identifier:
                 return JSONResponse(
                     {"detail": "Invalid API key"},
