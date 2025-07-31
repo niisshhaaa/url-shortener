@@ -27,7 +27,7 @@ async def shorten_url(request:Request,payload:LongUrl=Depends(validate_payload),
 
 @urls_router.post("/shorten/batch")
 async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_batch_payload),session_factory=Depends(get_session_factory)): 
-
+    print("shorten")
     user_identifier = request.state.user_identifier
 
     valids_with_idx, failures = payload
