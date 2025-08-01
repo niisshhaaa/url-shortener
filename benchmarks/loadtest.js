@@ -15,7 +15,7 @@ export let options = {
 };
 
 
-const BASE_URL= 'http://127.0.0.1:8000' ;
+const BASE_URL= 'http://127.0.0.1:8000/api/v2' ;
 // const BASE_URL = 'https://url-shortener-api-sekf.onrender.com'
 const TEST_URLL= "https://example.com" ;
 const TESTT_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
@@ -53,20 +53,20 @@ export default function(){
 
     // let short_code="something" 
 
-    let getHeaders = {'Content-Type':'application/json',
-        'api-key':'wrongkey'}; // intentionally wrong api key to test auth failure;
+    // let getHeaders = {'Content-Type':'application/json',
+    //     'api-key':'wrogkey'}; // intentionally wrong api key to test auth failure;
 
     
-    let getres = http.get(`${BASE_URL}/redirect?short_code=something`, {headers: getHeaders});
-    check(getres, {
-        "auth failed (401 or 403)": (r) => r.status === 403 || r.status === 401
-    });
-
-    // let getres=http.get(`${BASE_URL}/redirect?short_code=something`,{redirects:0});
-    // check(getres,{
-    //     "response code was 307": (getres)=>getres.status===307,
-    //     "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
+    // let getres = http.get(`${BASE_URL}/redirect?short_code=something`, {headers: getHeaders});
+    // check(getres, {
+    //     "auth failed (401 or 403)": (r) => r.status === 403 || r.status === 401
     // });
+
+    let getres=http.get(`${BASE_URL}/redirect?short_code=faze`);
+    check(getres,{
+        "response code was 307": (getres)=>getres.status===307,
+        "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
+    });
 
     sleep(1);
 

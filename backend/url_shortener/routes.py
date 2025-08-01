@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
-from .repository import  del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
+from .repository import  cache_load_url, del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
 from .models import  LongUrl, ShortenResponse, UpdateShortUrl
 from.services import process_url
@@ -65,7 +65,9 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     password:Optional[str]=Query(None),
                     db_session:AsyncSession=Depends(get_session)):
     
-    url=await load_url(short_code,db_session)
+    # url=await load_url(short_code,db_session)
+
+    url=await cache_load_url(short_code,db_session)  
    
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")

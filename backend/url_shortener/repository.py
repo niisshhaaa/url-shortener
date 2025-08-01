@@ -8,6 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import  delete, desc, func, select, update
 from db.schema import URL_SHORTENER
 from db.db_connection import async_session
+from backend.url_shortener._cache import _cache_urls
+
 
 async def load_url(short_code:str,session:AsyncSession):
    
@@ -21,6 +23,18 @@ async def load_url(short_code:str,session:AsyncSession):
            URL_SHORTENER.deleted_at.is_(None)))
         res=result.one_or_none()
         return res 
+
+async def cache_load_url(short_code,session:AsyncSession):
+    
+    if short_code in _cache_urls:
+        return _cache_urls[short_code]
+    
+    url_obj=await load_url(short_code,session)
+    if url_obj:
+        _cache_urls[short_code]=url_obj
+    return url_obj
+    
+
 
 async def get_userid_scode(scode,session):
     stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.password,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode,URL_SHORTENER.deleted_at.is_(None))
