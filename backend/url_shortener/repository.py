@@ -1,3 +1,4 @@
+from asyncio import Lock
 from datetime import datetime
 import hashlib
 import random
@@ -8,7 +9,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import  delete, desc, func, select, update
 from db.schema import URL_SHORTENER
 from db.db_connection import async_session
-from backend.url_shortener._cache import _cache_urls
+from backend.url_shortener._cache import cache_stats,_cache_urls
+_lock = Lock()
+
 
 
 async def load_url(short_code:str,session:AsyncSession):
@@ -25,14 +28,23 @@ async def load_url(short_code:str,session:AsyncSession):
         return res 
 
 async def cache_load_url(short_code,session:AsyncSession):
-    
+
     if short_code in _cache_urls:
+        cache_stats["cache_hits"]+=1
         return _cache_urls[short_code]
     
-    url_obj=await load_url(short_code,session)
-    if url_obj:
-        _cache_urls[short_code]=url_obj
-    return url_obj
+    # Only one coroutine should hit the DB for a cache-miss
+    async with _lock:
+        if short_code in _cache_urls:
+            cache_stats["cache_hits"]+=1
+            return _cache_urls[short_code]
+        
+        # no cache and we hold the lock → load from DB
+        cache_stats["cache_misses"]+=1
+        url_obj=await load_url(short_code,session)
+        if url_obj:
+            _cache_urls[short_code]=url_obj
+        return url_obj
     
 
 
@@ -110,6 +122,7 @@ async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool
     
 
 async def increment_stats(short_code: str) -> None:
+    print("increment stats")
     async with async_session() as session:  
         stmt = (
             update(URL_SHORTENER)

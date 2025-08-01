@@ -24,6 +24,8 @@ const testt_url="https://githubuniverse.com/";
 const get_return_url="https://grafana.com/docs/k6/latest/testing-guides/test-types/stress-testing/"
 const test_url="https://leetcode.com/studyplan/top-interview-150/"
 
+const faze_url="https://www.isavellatsoulias.com/understanding-phage-therapy"
+
 
 export default function(){
 
@@ -62,10 +64,10 @@ export default function(){
     //     "auth failed (401 or 403)": (r) => r.status === 403 || r.status === 401
     // });
 
-    let getres=http.get(`${BASE_URL}/redirect?short_code=faze`);
+    let getres=http.get(`${BASE_URL}/redirect?short_code=faze`,{redirects:0});
     check(getres,{
         "response code was 307": (getres)=>getres.status===307,
-        "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
+        "redirection is correct" : (getres) =>getres.headers['Location']===faze_url
     });
 
     sleep(1);

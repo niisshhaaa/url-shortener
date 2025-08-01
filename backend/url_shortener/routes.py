@@ -11,7 +11,7 @@ from .repository import  cache_load_url, del_scode, get_urls, get_userid_scode, 
 from db.dependencies import get_session, get_session_factory
 from .models import  LongUrl, ShortenResponse, UpdateShortUrl
 from.services import process_url
-from datetime import date, datetime
+from datetime import datetime
 
 urls_router=APIRouter()
 
@@ -81,7 +81,7 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
 
     #  Kick off analytics increment after sending redirect in same thread
     background_tasks.add_task(increment_stats, short_code)
-    
+    print("redirect")
     return RedirectResponse(url=url.original_url,status_code=307)
 
 
