@@ -1,4 +1,12 @@
-_cache_urls={}
+from asyncio import Lock
+import redis.asyncio as redis
+
+redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+
+# Optional: a lock to serialize first-time DB fetches per key
+_locks: dict[str, Lock] = {}
+
+
 
 cache_stats={
     "cache_hits" : 0,
@@ -6,6 +14,8 @@ cache_stats={
 }
 
 
-def cache_clear():
+async def cache_clear():
     """Clear the entire cache (useful in tests)."""
-    _cache_urls.clear()
+    keys = await redis_client.keys("url:*")
+    if keys:
+        await redis_client.delete(*keys)

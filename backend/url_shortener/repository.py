@@ -1,6 +1,7 @@
 from asyncio import Lock
-from datetime import datetime
+from datetime import date, datetime
 import hashlib
+import json
 import random
 from typing import Optional
 from fastapi import HTTPException
@@ -9,9 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import  delete, desc, func, select, update
 from db.schema import URL_SHORTENER
 from db.db_connection import async_session
-from backend.url_shortener._cache import cache_stats,_cache_urls
-_lock = Lock()
-
+from backend.url_shortener._cache import redis_client,cache_stats,_locks
 
 
 async def load_url(short_code:str,session:AsyncSession):
@@ -27,23 +26,59 @@ async def load_url(short_code:str,session:AsyncSession):
         res=result.one_or_none()
         return res 
 
-async def cache_load_url(short_code,session:AsyncSession):
-
-    if short_code in _cache_urls:
+async def cache_load_url(short_code,session:AsyncSession,ttl:int=3600):
+    key = f"url:{short_code}"
+    #  Attempt to fetch from Redis
+    try:
+        cached = await redis_client.get(key)
+    except Exception:
+        # Redis unavailable: fallback to direct DB load
+        url_obj = await load_url(short_code, session)
+        return url_obj
+    if cached:
+        data=json.loads(cached)
         cache_stats["cache_hits"]+=1
-        return _cache_urls[short_code]
+        url = URL_SHORTENER(
+            id=data.get("id"),
+            original_url=data["original_url"],
+            password=data.get("password"),
+            expiry_date=date.fromisoformat(data["expiry_date"]) if data.get("expiry_date") else None
+        )
+        return url
     
-    # Only one coroutine should hit the DB for a cache-miss
-    async with _lock:
-        if short_code in _cache_urls:
+    # Cache miss : Only one coroutine should hit the DB for a cache-miss
+    lock = _locks.setdefault(short_code, Lock())
+    async with lock:
+        try:
+            cached = await redis_client.get(key)
+        except Exception:
+            # Redis unavailable: fallback to direct DB load
+            url_obj = await load_url(short_code, session)
+            return url_obj
+        if cached:
+            data=json.loads(cached)
             cache_stats["cache_hits"]+=1
-            return _cache_urls[short_code]
+            url = URL_SHORTENER(
+                id=data.get("id"),
+                original_url=data["original_url"],
+                password=data.get("password"),
+                expiry_date=date.fromisoformat(data["expiry_date"]) if data.get("expiry_date") else None
+            )
+            return url
         
-        # no cache and we hold the lock → load from DB
-        cache_stats["cache_misses"]+=1
         url_obj=await load_url(short_code,session)
         if url_obj:
-            _cache_urls[short_code]=url_obj
+            # no cache and we hold the lock → load from DB
+            cache_stats["cache_misses"]+=1
+
+            payload = {
+                "original_url": url_obj.original_url,
+                "password": url_obj.password,
+                "expiry_date": url_obj.expiry_date if url_obj.expiry_date else None
+            }
+            await redis_client.set(key, json.dumps(payload,default=str), ex=ttl)
+            print("payload",payload)
+            
         return url_obj
     
 
@@ -122,7 +157,6 @@ async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool
     
 
 async def increment_stats(short_code: str) -> None:
-    print("increment stats")
     async with async_session() as session:  
         stmt = (
             update(URL_SHORTENER)
