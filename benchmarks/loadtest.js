@@ -64,7 +64,7 @@ export default function(){
     //     "auth failed (401 or 403)": (r) => r.status === 403 || r.status === 401
     // });
 
-    let getres=http.get(`${BASE_URL}/redirect?short_code=fazee`,{redirects:0});
+    let getres=http.get(`${BASE_URL}/redirect?short_code=faze`,{redirects:0});
     check(getres,{
         "response code was 307": (getres)=>getres.status===307,
         "redirection is correct" : (getres) =>getres.headers['Location']===faze_url
