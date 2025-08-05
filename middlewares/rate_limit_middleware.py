@@ -23,21 +23,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             print("ip counter",ip_counter)
             
 
-            # if ip key not in redis cache set counter in redis with ttl of 1 min  
+            # if ip key not in redis cache implies first request , set counter in redis with ttl of 1 min  
             if not ip_counter:
-                counter=0
+                counter=1
                 await redis_client.set(key, counter, ex=self.ttl)
-            
-
+                
+            # for requests after first request
             if ip_counter :
                 ip_counter=int(ip_counter)
-                if ip_counter>=self.max_requests:
+                counter=ip_counter+1
+                if counter>=self.max_requests+1:
                     print("throttle")
                     return JSONResponse(
                         {"detail": "Rate limit exceeded. Try again later."},
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     )
-                counter=ip_counter+1
                 await redis_client.set(key, counter, ex=self.ttl)
 
         return await call_next(request)

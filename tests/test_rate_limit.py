@@ -48,10 +48,10 @@ async def test_get_requests_beyond_limit(ac_client,fake_redis):
     short_code = "1e1052"
     input_url = "https://grafana.com/docs/k6/latest/extensions/"
 
-    for i in range(7):
+    for i in range(5):
         response = await ac_client.get(f"{url_prefix}/redirect?short_code={short_code}", follow_redirects=False)
-        # assert response.status_code == 307
-        # assert response.headers["Location"] == input_url
+        assert response.status_code == 307
+        assert response.headers["Location"] == input_url
 
-    # response1 = await ac_client.get(f"{url_prefix}/redirect?short_code={short_code}", follow_redirects=False)
-    assert response.status_code == 429
+    response1 = await ac_client.get(f"{url_prefix}/redirect?short_code={short_code}", follow_redirects=False)
+    assert response1.status_code == 429
