@@ -4,18 +4,27 @@ from fastapi import HTTPException, Request, Response,status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from backend.url_shortener._cache import redis_client
+from backend.__init__ import version_prefix
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, max_requests: int = 100, ttl: int = 60):
+    def __init__(self, app, max_requests: int = 100, ttl: int = 60,
+                 specific_limits={f"{version_prefix}/shorten":10,f"{version_prefix}/redirect":50}):
         super().__init__(app)
         self.max_requests = max_requests
         self.ttl = ttl
+        self.specific_limits=specific_limits
 
     async def dispatch(self, request: Request, call_next):
        
         ip=request.client.host if request.client else None
-        print("ip",ip)
+        req_path=request.url.path
+
+        limit=self.max_requests
+        for path,lim in self.specific_limits.items():
+            if req_path.startswith(path):
+                limit=lim
+
         key = f"rate:{ip}"
 
         if ip :
@@ -32,7 +41,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if ip_counter :
                 ip_counter=int(ip_counter)
                 counter=ip_counter+1
-                if counter>=self.max_requests+1:
+                if counter>=limit+1:
                     print("throttle")
                     return JSONResponse(
                         {"detail": "Rate limit exceeded. Try again later."},

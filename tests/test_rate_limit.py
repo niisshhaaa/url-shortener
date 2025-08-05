@@ -1,20 +1,19 @@
 import json
 from fastapi import FastAPI
-from backend.main import app
+from backend.main import create_app
 import pytest
 from httpx import ASGITransport, AsyncClient
 from asgi_lifespan import LifespanManager
 import dotenv
 import fakeredis.aioredis
 from middlewares import rate_limit_middleware
-from middlewares.rate_limit_middleware import RateLimitMiddleware
-from backend.url_shortener.routes import urls_router
 
 dotenv.load_dotenv()
 
 url_prefix="/api/v2"
 
-app_test=app
+app_test=create_app(test=True)
+
 
 @pytest.fixture
 async def ac_client():
