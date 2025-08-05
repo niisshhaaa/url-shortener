@@ -30,9 +30,8 @@ async def utilise_cache(key,short_code,session):
     try:
         cached = await redis_client.get(key)
     except Exception:
-        # Redis unavailable: fallback to direct DB load
-        url_obj = await load_url(short_code, session)
-        return url_obj
+        # Redis unavailable
+        return None
     if cached:
         data=json.loads(cached)
         cache_stats["cache_hits"]+=1
@@ -43,22 +42,28 @@ async def utilise_cache(key,short_code,session):
         )
         print("url",data)
         return url
+    return None
 
 async def cache_load_url(short_code,session:AsyncSession,ttl:int=3600):
     key = f"url:{short_code}"
     #  Attempt to fetch from Redis
-    await utilise_cache(key,short_code,session)
+    cached_url=await utilise_cache(key,short_code,session)
+    if cached_url:
+        return cached_url
     
     # Cache miss : Only one coroutine should hit the DB for a cache-miss
     lock = _locks.setdefault(short_code, Lock())  # lock one request per short_code in  case of concurrent requests to db .
     async with lock:
-        await utilise_cache(key,short_code,session)
+        cached_url=await utilise_cache(key,short_code,session)
+        if cached_url:
+            return cached_url
         
+        # no cache and we hold the lock → load from DB
+        cache_stats["cache_misses"]+=1
         url_obj=await load_url(short_code,session)
-        if url_obj:
-            # no cache and we hold the lock → load from DB
-            cache_stats["cache_misses"]+=1
 
+        if url_obj:
+            
             payload = {
                 "original_url": url_obj.original_url,
                 "password": url_obj.password,
