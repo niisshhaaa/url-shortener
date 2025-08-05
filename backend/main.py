@@ -4,7 +4,7 @@ from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware
 from db.db_connection import async_engine
 from error_tracking.routes import sentry_router
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
-from middlewares.rate_limit_middleware import ApiKeyRateLimitMiddleware, RateLimitMiddleware
+from middlewares.rate_limit_middleware import ApiKeyRateLimitMiddleware
 from prometheus.custom_instrumentator import instrumentator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI

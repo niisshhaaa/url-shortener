@@ -61,7 +61,6 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
 
     return {"successes": successes, "failures": failures}  
 
-
 @urls_router.get("/redirect")
 async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     password:Optional[str]=Query(None),
@@ -87,7 +86,6 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
     background_tasks.add_task(increment_stats, short_code)
 
     return res
-
 
 @urls_router.patch("/shorten/{short_code}")
 async def update_code(
