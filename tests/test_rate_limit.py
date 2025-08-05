@@ -1,4 +1,4 @@
-import json
+import os
 from fastapi import FastAPI
 from backend.main import create_app
 import pytest
@@ -13,6 +13,9 @@ dotenv.load_dotenv()
 url_prefix="/api/v2"
 
 app_test=create_app(test=True)
+
+FREE_TIER_POST=os.getenv("FREE_TIER_POST")
+UNFAZE_API_KEY = os.getenv("UNFAZE_API_KEY")
 
 
 @pytest.fixture
@@ -53,4 +56,27 @@ async def test_get_requests_beyond_limit(ac_client,fake_redis):
         assert response.headers["Location"] == input_url
 
     response1 = await ac_client.get(f"{url_prefix}/redirect?short_code={short_code}", follow_redirects=False)
+    assert response1.status_code == 429
+
+
+@pytest.mark.anyio
+async def test_post_shorten_beyond_limit_free_user(ac_client):
+    for i in range(5):
+        valid_url="https://www.youtube.com/watch?v=nb_fFj_0rq8"
+        post_response = await ac_client.post(f'{url_prefix}/shorten', json={"url_link": valid_url,"custom_slug":"freeavtr"}, headers={"Authorization": f"Bearer {FREE_TIER_POST}" })
+        assert post_response.status_code == 200
+        assert post_response.json() is not None
+
+    response1 = await ac_client.post(f'{url_prefix}/shorten', json={"url_link": valid_url,"custom_slug":"freeavtr"}, headers={"Authorization": f"Bearer {FREE_TIER_POST}" })
+    assert response1.status_code == 429
+
+@pytest.mark.anyio
+async def test_post_shorten_beyond_limit_normal(ac_client):
+    for i in range(3):
+        valid_url="https://www.youtube.com/watch?v=nb_fFj_0rq8"
+        post_response = await ac_client.post(f'{url_prefix}/shorten', json={"url_link": valid_url,"custom_slug":"avtr"}, headers={"Authorization": f"Bearer {UNFAZE_API_KEY}" })
+        assert post_response.status_code == 200
+        assert post_response.json() is not None
+
+    response1 = await ac_client.post(f'{url_prefix}/shorten', json={"url_link": valid_url,"custom_slug":"avtr"}, headers={"Authorization": f"Bearer {UNFAZE_API_KEY}" })
     assert response1.status_code == 429

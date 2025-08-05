@@ -4,7 +4,7 @@ from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware
 from db.db_connection import async_engine
 from error_tracking.routes import sentry_router
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
-from middlewares.rate_limit_middleware import RateLimitMiddleware
+from middlewares.rate_limit_middleware import ApiKeyRateLimitMiddleware, RateLimitMiddleware
 from prometheus.custom_instrumentator import instrumentator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -43,12 +43,14 @@ def create_app(test:bool=False):
      app.include_router(stats_router,prefix=f"{version_prefix}/stats")
 
      app.add_middleware(AuthorizationMiddleware,paths=[f"{version_prefix}/shorten/batch"])
-     app.add_middleware(AuthenticationMiddleware, session=async_session,paths=[f"{version_prefix}/shorten", f"{version_prefix}/shorten/batch",f"{version_prefix}/shorten/" ,f"{version_prefix}/urls"])
+     
      # app.add_middleware(LazyReloadBlacklistMiddleware)
      if test:
-         app.add_middleware(RateLimitMiddleware,specific_limits={f"{version_prefix}/shorten":3,f"{version_prefix}/redirect":5})
+         app.add_middleware(ApiKeyRateLimitMiddleware,specific_limits={f"{version_prefix}/shorten":3,f"{version_prefix}/redirect":5})
      else:
-         app.add_middleware(RateLimitMiddleware)
+         app.add_middleware(ApiKeyRateLimitMiddleware)
+
+     app.add_middleware(AuthenticationMiddleware, session=async_session,paths=[f"{version_prefix}/shorten", f"{version_prefix}/shorten/batch",f"{version_prefix}/shorten/" ,f"{version_prefix}/urls"])
      # app.add_middleware(RequestLoggingMiddleware)
      app.add_middleware(TimingMiddleware)
 
