@@ -39,11 +39,8 @@ class ApiKeyRateLimitMiddleware(BaseHTTPMiddleware):
         if user:
             key_id = f"api:{user.id}"
             # apply free‐tier override if needed
-            limit = (
-                self.free_tier_limit
-                if user.tier_level == "FREE"
-                else self.default_limit
-            )
+            if user.tier_level =='FREE':
+                limit=self.free_tier_limit
         else:
             ip = request.client.host if request.client else "unkown"
             key_id = f"ip:{ip}"
@@ -54,7 +51,7 @@ class ApiKeyRateLimitMiddleware(BaseHTTPMiddleware):
         if count == 1:
             # first hit → set the TTL
             await redis_client.expire(key_id, self.ttl)
-
+        print("limit",limit)
         # 4) Enforce the limit
         if count > limit:
             retry_after = await redis_client.ttl(key_id)
