@@ -54,11 +54,12 @@ class ApiKeyRateLimitMiddleware(BaseHTTPMiddleware):
         print("limit",limit)
         # 4) Enforce the limit
         if count > limit:
-            retry_after = await redis_client.ttl(key_id)
+            ttl_remaining = await redis_client.ttl(key_id)
+            reset_timestamp=int(time.time()) + max(ttl_remaining,0)
             headers = {
                 "X-RateLimit-Limit":      str(limit),
                 "X-RateLimit-Remaining":  "0",
-                "Retry-After":            str(retry_after if retry_after>0 else self.ttl),
+                "X-RateLimit-Reset":     str(reset_timestamp),
             }
             return JSONResponse(
                 {"detail": "Rate limit exceeded. Try again later."},
@@ -70,6 +71,7 @@ class ApiKeyRateLimitMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"]     = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(max(limit - count, 0))
+        response.headers["X-RateLimit-Reset"]     = str(reset_timestamp)
         return response
 
 

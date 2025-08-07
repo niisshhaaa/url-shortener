@@ -52,6 +52,7 @@ async def cache_load_url(short_code,session:AsyncSession,ttl:int=3600):
         return cached_url
     
     # Cache miss : Only one coroutine should hit the DB for a cache-miss
+    # in case if more than 1 request reached at this point to fetch from db .lock one request and complete it fully and then proceed one by one .
     lock = _locks.setdefault(short_code, Lock())  # lock one request at a time per short_code in  case of concurrent requests to db .
     async with lock:
         cached_url=await utilise_cache(key,short_code,session)
