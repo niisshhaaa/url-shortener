@@ -25,7 +25,7 @@ async def process_url(payload,session,user_id:int):
                 if payload.custom_slug:
                     short_code=payload.custom_slug
                     code_exists=await check_code_exists(session,short_code)
-                    print("code_exists_pass",code_exists.password)
+                    
                     if code_exists:
                         if code_exists.original_url==payload.url_link and code_exists.user_id==user_id:
                             return {"original_url":code_exists.original_url,"short_url":code_exists.short_code,"password":code_exists.password}

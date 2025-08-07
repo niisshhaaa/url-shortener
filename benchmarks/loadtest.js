@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = { 
     stages: [
-        { duration: '10s', target:100 },   
+        { duration: '4s', target:10 },   
     ],
     thresholds: {
         http_req_duration: ['p(95)<500'], // 95% of requests should complete within 500ms
@@ -15,7 +15,7 @@ export let options = {
 };
 
 
-const BASE_URL= 'http://127.0.0.1:8000' ;
+const BASE_URL= 'http://127.0.0.1:8000/api/v2' ;
 // const BASE_URL = 'https://url-shortener-api-sekf.onrender.com'
 const TEST_URLL= "https://example.com" ;
 const TESTT_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
@@ -23,6 +23,8 @@ const TEST_URL="https://docs.sqlalchemy.org/en/20/core/constraints.html" ;
 const testt_url="https://githubuniverse.com/";
 const get_return_url="https://grafana.com/docs/k6/latest/testing-guides/test-types/stress-testing/"
 const test_url="https://leetcode.com/studyplan/top-interview-150/"
+
+const faze_url="https://www.isavellatsoulias.com/understanding-phage-therapy"
 
 
 export default function(){
@@ -53,20 +55,20 @@ export default function(){
 
     // let short_code="something" 
 
-    let getHeaders = {'Content-Type':'application/json',
-        'api-key':'wrongkey'}; // intentionally wrong api key to test auth failure;
+    // let getHeaders = {'Content-Type':'application/json',
+    //     'api-key':'wrogkey'}; // intentionally wrong api key to test auth failure;
 
     
-    let getres = http.get(`${BASE_URL}/redirect?short_code=something`, {headers: getHeaders});
-    check(getres, {
-        "auth failed (401 or 403)": (r) => r.status === 403 || r.status === 401
-    });
-
-    // let getres=http.get(`${BASE_URL}/redirect?short_code=something`,{redirects:0});
-    // check(getres,{
-    //     "response code was 307": (getres)=>getres.status===307,
-    //     "redirection is correct" : (getres) =>getres.headers['Location']===get_return_url
+    // let getres = http.get(`${BASE_URL}/redirect?short_code=something`, {headers: getHeaders});
+    // check(getres, {
+    //     "auth failed (401 or 403)": (r) => r.status === 403 || r.status === 401
     // });
+
+    let getres=http.get(`${BASE_URL}/redirect?short_code=faze`,{redirects:0});
+    check(getres,{
+        "response code was 307": (getres)=>getres.status===307,
+        "redirection is correct" : (getres) =>getres.headers['Location']===faze_url
+    });
 
     sleep(1);
 

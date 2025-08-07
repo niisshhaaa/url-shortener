@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-* (future new features go here)
+- Redis-backed caching for `/redirect` endpoint (cache-aside with per-key locks to prevent db thundering-herd, TTL configurable).  
+- `/cache-stats` endpoint exposing cache hits, misses, and hit-ratio. It doesn't persist server restarts.
+- IP- and API-key-based(Protected endpoints) rate-limiting middleware:
+  - Default: 50 req/min per IP
+  - Per-route limits (`/shorten`: 10 req/s, `/redirect`: 50 req/s)
+  - “Free” tier override: 5 req/min for free-tier users  
 
 ### Changed
 

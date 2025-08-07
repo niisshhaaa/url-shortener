@@ -1,4 +1,5 @@
 import asyncio
+from email.utils import format_datetime
 from typing import List, Optional, Union
 from fastapi import APIRouter, Header
 from fastapi import Request, Depends, HTTPException,BackgroundTasks
@@ -7,11 +8,12 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
-from .repository import  del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
+from .repository import  cache_load_url, del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
 from .models import  LongUrl, ShortenResponse, UpdateShortUrl
 from.services import process_url
-from datetime import date, datetime
+from datetime import datetime, timedelta
+from backend.url_shortener._cache import cache_clear
 
 urls_router=APIRouter()
 
@@ -59,29 +61,31 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
 
     return {"successes": successes, "failures": failures}  
 
-
 @urls_router.get("/redirect")
 async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     password:Optional[str]=Query(None),
                     db_session:AsyncSession=Depends(get_session)):
     
-    url=await load_url(short_code,db_session)
-   
+    # await cache_clear()
+    
+    url=await cache_load_url(short_code,db_session)
+
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
     
-    if url.password and url.password!=password:  #passwords should certainly be hashed in auth scenarios  
-        raise HTTPException(status_code=403,detail="Invalid password as short code is protected")
-    
+    if url.password :
+        if url.password!=password:  #passwords should certainly be hashed in auth scenarios 
+            raise HTTPException(status_code=403,detail="Invalid password as short code is protected")
+
+
     if url.expiry_date and url.expiry_date< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
 
-
+    res=RedirectResponse(url=url.original_url,status_code=307)
     #  Kick off analytics increment after sending redirect in same thread
     background_tasks.add_task(increment_stats, short_code)
-    
-    return RedirectResponse(url=url.original_url,status_code=307)
 
+    return res
 
 @urls_router.patch("/shorten/{short_code}")
 async def update_code(

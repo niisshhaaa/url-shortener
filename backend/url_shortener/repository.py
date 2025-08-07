@@ -1,13 +1,17 @@
-from datetime import datetime
+from asyncio import Lock
+from datetime import date, datetime
 import hashlib
+import json
 import random
 from typing import Optional
-from fastapi import HTTPException
+from fastapi import HTTPException,status
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import  delete, desc, func, select, update
 from db.schema import URL_SHORTENER
 from db.db_connection import async_session
+from backend.url_shortener._cache import redis_client,cache_stats,_locks
+
 
 async def load_url(short_code:str,session:AsyncSession):
    
@@ -21,6 +25,57 @@ async def load_url(short_code:str,session:AsyncSession):
            URL_SHORTENER.deleted_at.is_(None)))
         res=result.one_or_none()
         return res 
+
+async def utilise_cache(key,short_code,session):
+    try:
+        cached = await redis_client.get(key)
+    except Exception:
+        # Redis unavailable
+        return None
+    if cached:
+        data=json.loads(cached)
+        cache_stats["cache_hits"]+=1
+        url = URL_SHORTENER(
+            original_url=data["original_url"],
+            password=data.get("password"),
+            expiry_date=date.fromisoformat(data["expiry_date"]) if data.get("expiry_date") else None
+        )
+        print("url",data)
+        return url
+    return None
+
+async def cache_load_url(short_code,session:AsyncSession,ttl:int=3600):
+    key = f"url:{short_code}"
+    #  Attempt to fetch from Redis
+    cached_url=await utilise_cache(key,short_code,session)
+    if cached_url:
+        return cached_url
+    
+    # Cache miss : Only one coroutine should hit the DB for a cache-miss
+    # in case if more than 1 request reached at this point to fetch from db .lock one request and complete it fully and then proceed one by one .
+    lock = _locks.setdefault(short_code, Lock())  # lock one request at a time per short_code in  case of concurrent requests to db .
+    async with lock:
+        cached_url=await utilise_cache(key,short_code,session)
+        if cached_url:
+            return cached_url
+        
+        # no cache and we hold the lock → load from DB
+        cache_stats["cache_misses"]+=1
+        url_obj=await load_url(short_code,session)
+
+        if url_obj:
+            
+            payload = {
+                "original_url": url_obj.original_url,
+                "password": url_obj.password,
+                "expiry_date": url_obj.expiry_date if url_obj.expiry_date else None
+            }
+            await redis_client.set(key, json.dumps(payload,default=str), ex=ttl)
+            print("payload",payload)
+            
+        return url_obj
+    
+
 
 async def get_userid_scode(scode,session):
     stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.password,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode,URL_SHORTENER.deleted_at.is_(None))
@@ -109,6 +164,12 @@ async def increment_stats(short_code: str) -> None:
         await session.execute(stmt)
         await session.commit()
 
+async def invalidate_short_code_cache(code):
+    redis_key = f"url:{code}"
+    try:
+        await redis_client.delete(redis_key)
+    except Exception as e :
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail=f"Error connecting to redis")
 
 async def update_code_db(session,code,expiry_date,password):
     
@@ -126,7 +187,11 @@ async def update_code_db(session,code,expiry_date,password):
     if not res:
         raise HTTPException(status_code=500,detail="Couldn't update code")
     
+    #invalidate cache (or overwrite cache entry )
+    await invalidate_short_code_cache(code)
+
     return res
+
         
 async def get_urls(session,user_id,limit,page):
     stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==user_id,

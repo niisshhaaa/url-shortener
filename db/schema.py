@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from sqlalchemy.orm import  declarative_base, relationship
-from sqlalchemy import Column, Index , Integer , String , TIMESTAMP ,ForeignKey ,DATE,Enum
+from sqlalchemy import Column, Index , Integer , String , TIMESTAMP ,ForeignKey ,DATE,Enum, text
 from datetime import datetime
 import enum
 
@@ -10,6 +10,7 @@ Base=declarative_base()
 class TierLevel(enum.Enum):
     HOBBY='hobby'
     ENTERPRISE='enterprise'
+    FREE='free'
 
 #ORM mapped classes -->
 class URL_SHORTENER(Base):
@@ -59,7 +60,7 @@ class Users(Base):
     user_inactive=Column(TIMESTAMP,nullable=True)
     created_at=Column(TIMESTAMP,default=datetime.now)
     updated_at=Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
-    tier_level=Column(Enum('HOBBY', 'ENTERPRISE', name='tierlevel', create_type=False),default='HOBBY',nullable=False)
+    tier_level=Column(Enum('HOBBY', 'ENTERPRISE','FREE', name='tierlevel', create_type=False),server_default=text("'FREE'"),nullable=False)
     #change the name of enum to lowercase as postgresql stores case sensitive names in double quotes and non case sensitive in single quotes.
     #otherwise it will cause problem when adding new user and not specifying any value for tier_level directly
     #First chnage in sqlalchemy using alembic and then update here in orm .
