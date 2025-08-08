@@ -52,10 +52,12 @@ class ApiKeyRateLimitMiddleware(BaseHTTPMiddleware):
             # first hit → set the TTL
             await redis_client.expire(key_id, self.ttl)
         print("limit",limit)
+
+        ttl_remaining = await redis_client.ttl(key_id)
+        reset_timestamp=int(time.time()) + max(ttl_remaining,0)
+
         # 4) Enforce the limit
         if count > limit:
-            ttl_remaining = await redis_client.ttl(key_id)
-            reset_timestamp=int(time.time()) + max(ttl_remaining,0)
             headers = {
                 "X-RateLimit-Limit":      str(limit),
                 "X-RateLimit-Remaining":  "0",
