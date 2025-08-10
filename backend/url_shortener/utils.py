@@ -9,8 +9,7 @@ import secrets,os,jwt,uuid,logging
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from datetime import datetime ,timedelta
-
-from backend.url_shortener.repository import check_code_exists
+from backend.cache._cache import redis_client
 
 
 
@@ -100,6 +99,7 @@ def hash_code_without_entropy(url,user_id):
     full_hash_rand=hashlib.sha256(f"{url}{user_id}".encode()).hexdigest()
     short_hash=full_hash_rand[:7]
     return short_hash
+
 
 
 

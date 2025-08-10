@@ -1,13 +1,15 @@
 from fastapi import APIRouter
-from backend.url_shortener._cache import cache_stats
+from backend.cache._cache import MISSES_KEY,HITS_KEY,redis_client
 
 stats_router=APIRouter()
 
 @stats_router.get("/cache-stats")
-def get_cache_stats():
-    total=cache_stats["cache_hits"]+cache_stats["cache_misses"]
+async def get_cache_stats():
+    hits=int(await redis_client.get(HITS_KEY) or 0)
+    misses=int(await redis_client.get(MISSES_KEY) or 0)
+    total=misses+hits
     return {
-        "hits": cache_stats["cache_hits"],
-        "misses": cache_stats["cache_misses"],
-        "hit_ratio": cache_stats["cache_hits"] / total if total else None,
+        "hits": hits,
+        "misses": misses,
+        "hit_ratio": hits / total if total else None,
     }
