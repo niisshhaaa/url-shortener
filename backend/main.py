@@ -1,5 +1,5 @@
 from typing import Set
-from backend.url_shortener._cache import configure_redis
+from backend.cache._cache import configure_redis
 from config.blacklist import BLACKLIST_PATH, load_blacklist
 from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware, LazyReloadBlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware, TimingMiddleware
 from db.db_connection import async_engine
@@ -26,7 +26,7 @@ async def app_lifespan(app:FastAPI):
      app.state.blocked_keys = blocked_keys
      app.state._last_mtime=BLACKLIST_PATH.stat().st_mtime
 
-     await configure_redis()
+    #  await configure_redis()
 
      # ORM only maps schema to python objects , so create the schema(tables) for deploying the api 
      # or add alembic update in start command of app service on deployed platform 

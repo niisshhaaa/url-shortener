@@ -7,13 +7,14 @@ from fastapi.params import Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
+from backend.cache.repository import cache_load_url
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
-from .repository import  cache_load_url, del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
+from .repository import del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
 from .models import  LongUrl, ShortenResponse, UpdateShortUrl
 from.services import process_url
 from datetime import datetime, timedelta
-from backend.url_shortener._cache import cache_clear
+from backend.cache._cache import cache_clear
 
 urls_router=APIRouter()
 
@@ -68,7 +69,7 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
     
     # await cache_clear()
     
-    url=await cache_load_url(short_code,db_session)
+    url=await cache_load_url(short_code,db_session,background_tasks)
 
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
@@ -91,11 +92,11 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
 async def update_code(
     request:Request,
     short_code:str,
+    background_tasks:BackgroundTasks,
     patch_payload:UpdateShortUrl,
     db_session:AsyncSession=Depends(get_session)):
     user_identifier = request.state.user_identifier
     user_id=user_identifier.id 
-
 
     code=await get_userid_scode(short_code,db_session)
     if not code:
@@ -104,7 +105,7 @@ async def update_code(
     if code.user_id!=user_id:
         raise HTTPException(status_code=403,detail="Cannot update ,code belongs to another user")
     
-    res=await update_code_db(db_session,code.short_code,patch_payload.expiry_date,patch_payload.password)
+    res=await update_code_db(db_session,background_tasks,code.short_code,patch_payload.expiry_date,patch_payload.password)
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":res.password,"message":"updated short code!"}
 
 
