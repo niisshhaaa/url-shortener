@@ -3,7 +3,7 @@ import logging,time
 from fastapi import HTTPException, Request, Response,status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from backend.url_shortener._cache import redis_client
+from backend.cache._cache import redis_client
 from backend.__init__ import version_prefix
 
 
@@ -51,11 +51,11 @@ class ApiKeyRateLimitMiddleware(BaseHTTPMiddleware):
         if count == 1:
             # first hit → set the TTL
             await redis_client.expire(key_id, self.ttl)
-        print("limit",limit)
+
+        ttl_remaining = await redis_client.ttl(key_id)
+        reset_timestamp=int(time.time()) + max(ttl_remaining,0)
         # 4) Enforce the limit
         if count > limit:
-            ttl_remaining = await redis_client.ttl(key_id)
-            reset_timestamp=int(time.time()) + max(ttl_remaining,0)
             headers = {
                 "X-RateLimit-Limit":      str(limit),
                 "X-RateLimit-Remaining":  "0",
