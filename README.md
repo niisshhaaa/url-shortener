@@ -68,7 +68,7 @@ Note: We intentionally do not perform per-hit Redis counter increments on the ho
 Can avoid distributed locks for writes using a Lua CAS pattern: store an updated_at (or monotonic version) in both DB and cache, and use a tiny Lua script (EVAL) that atomically writes only if new_version >= existing_version. This is server-side atomic and reduces round trips. Recommended experiment if you want to trade added implementation work for somewhat lower latency.
 
 
-Deploy API on Render 
+-------------**Deploy API on Render**
 > Create a procfile
 
 > Create api ( New -> Web service -> connect to repo -> specify details -> fill in env variables ( use the internal database url obtained after creating a connection ,add + asyncpg)
