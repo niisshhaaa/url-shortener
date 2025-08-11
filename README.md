@@ -52,6 +52,14 @@ with high concurrent requests the pool limit reached because completing requests
 
 > Observed impact (k6): mean latency reduced from ~882 ms (no cache) to ~563 ms (cache + locking) → ~**319 ms average improvement per request; median and p95 also improved (median ≈ 268 ms improvement, p95 ≈ 1.1 s improvement**).
 
+WITHOUT CACHE
+<img width="1828" height="893" alt="image (2)" src="https://github.com/user-attachments/assets/b7dea2ba-2ee2-4d81-9968-c2e54f85c36d" />
+
+WITH CACHE
+<img width="1824" height="858" alt="image (3)" src="https://github.com/user-attachments/assets/80a74616-5587-4f4e-a3d6-dcbc232df44a" />
+
+> Cache set and updates are done atomically under a single per key lock for redirect and update endpoints . This is done to avoid cache inconsistency . Although it is recommended to also Move retries to a dedicated worker/outbox if durable guarantee is needed and cache is security critical — background tasks are okay, but an outbox is more reliable for production.
+
 > Earlier, without robust locking/stats writes, ~1 s improvement observed ; adding cross-process correctness (locks, stats writes, retries) reduced raw gain but made the system safe for multi-worker deployments.
 
 Note: We intentionally do not perform per-hit Redis counter increments on the hot path in production — collect metrics via Prometheus client or batch writes instead to avoid extra round-trips.
