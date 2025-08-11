@@ -215,6 +215,131 @@ with high concurrent requests the pool limit reached because completing requests
 > 3 horizontal deviations for diffrent latency like p50 ,p90 and p99. For shorten 200 requests sent with some time gap for with slug case and the spike in shorten is like for next 100 it was called without slug(with more checks)
 
 
+Quick start (local dev)
+Create & activate a venv
+
+bash
+Copy
+Edit
+python3 -m venv venv
+# unix / mac
+source venv/bin/activate
+# windows (powershell)
+.\venv\Scripts\Activate
+pip install -r requirements.txt   # after you create requirements.txt
+Install
+
+bash
+Copy
+Edit
+pip install -r requirements.txt
+# or during dev
+pip install fastapi[standard] uvicorn redis sqlalchemy alembic httpx pytest k6
+Environment
+Create .env with your settings (DATABASE_URL, REDIS_URL, SECRET, etc). Make sure DB URL uses async driver for runtime (e.g. postgresql+asyncpg://...) and Alembic uses a sync driver when generating migrations if you choose sync autogenerate.
+
+DB migrations (alembic)
+
+bash
+Copy
+Edit
+alembic init migrations            # one-time
+# update alembic.ini/sqlalchemy.url then:
+alembic revision --autogenerate -m "describe change"
+alembic upgrade head
+Run the app (dev)
+
+bash
+Copy
+Edit
+# single worker (dev)
+uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+
+# production-ish: multiple workers (handle more concurrent fds)
+uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 4
+Tests & load tests
+Unit / integration: pytest
+
+Load testing (k6): k6 run loadtest.js (example scripts live in loadtests/)
+
+What’s implemented (concise)
+Caching (redirect endpoint)
+Cache-aside using Redis: url:{short_code} → cached payload.
+
+Distributed per-key lock when populating or overwriting the cache to avoid thundering-herd across multiple workers/processes.
+
+Fallback: per-process asyncio.Lock if Redis is unavailable.
+
+Writes are retried in background if Redis is temporarily unreachable.
+
+Cache TTL configurable per key.
+
+Observed impact (k6): mean latency reduced from ~882 ms (no cache) to ~563 ms (cache + locking) → ~319 ms average improvement per request; median and p95 also improved (median ≈ 268 ms improvement, p95 ≈ 1.1 s improvement).
+
+Earlier, without robust locking/stats writes, you saw ~1 s improvement; adding cross-process correctness (locks, stats writes, retries) reduced raw gain but made the system safe for multi-worker deployments.
+
+Note: We intentionally do not perform per-hit Redis counter increments on the hot path in production — collect metrics via Prometheus client or batch writes instead to avoid extra round-trips.
+
+Option for lower latency (experiment)
+You can avoid distributed locks for writes using a Lua CAS pattern: store an updated_at (or monotonic version) in both DB and cache, and use a tiny Lua script (EVAL) that atomically writes only if new_version >= existing_version. This is server-side atomic and reduces round trips. Recommended experiment if you want to trade added implementation work for lower latency.
+
+Rate limiting
+Middleware implementing fixed-window counters stored in Redis (TTL-based counters).
+
+Two modes:
+
+IP-based for public endpoints.
+
+API-key / user-based for protected endpoints (per-user tier limits).
+
+Example limits (configurable): default 50 req/min, per-route overrides (/shorten: 10 req/s, /redirect: 50 req/s), free tier override (5 req/60s).
+
+Middleware sets X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset headers.
+
+Analytics & listing
+GET /latest-urls — real-time latest N URLs (paginated by cursor)
+
+GET /top-urls — top N short URLs by visit count
+
+Pagination: cursor-based (load-more) instead of offset pages — more stable for live datasets.
+
+Versioning
+API routes are namespaced with a version prefix (e.g. /api/v2/...). Breaking changes should bump version.
+
+Deployment notes
+Redis and DB should be colocated (same AZ/VPC) to minimize RTT. Use Unix socket or localhost when running on same host.
+
+In production consider separate Redis instances for different roles:
+
+redis-cache for redirect objects (eviction policy LFU/LRU).
+
+redis-meta for counters and rate-limit keys (noeviction or tiny memory).
+
+Use multiple Uvicorn workers to increase parallel capacity; watch DB connection pool size — DB is often the bottleneck.
+
+For durable background work (retries, outbox), use an external worker (Celery, RQ, Redis streams) if you require guaranteed delivery after restarts.
+
+Observability
+Prefer Prometheus + Grafana for metrics (histograms for latency), and Sentry for error tracking.
+
+Do not use Redis as your primary metrics sink — use Prometheus client library to expose metrics, or a separate metrics pipeline that minimizes hot-path network calls.
+
+Recommended next experiments / improvements
+Lua CAS for writer/populate (avoid distributed lock for writes): implement compare-by-updated_at inside a compact Lua script. Good if you want to shave lock RTTs.
+
+Move metrics to Prometheus: remove per-request Redis INCR and use in-process metrics + scrape/export.
+
+Reader inflight optimisation (per-process): optionally allow one loader per process to reply to waiters quickly — reduces local contention.
+
+Outbox pattern for critical cache updates if you must guarantee cache updates even if Redis has transient failure.
+
+Short FAQ / tips
+Do errors get cached? — No. We avoid caching 4xx/5xx responses. Only valid redirect payloads are cached.
+
+What if Redis is down? — We fall back to DB reads, per-process locks prevent local thundering herd; writes are retried in background.
+
+Should I bump a tag for this work? — Fixes and robustness improvements → patch release (e.g. v2.1.1). Don’t rewrite tags that were already pushed.
+
 
 
 
