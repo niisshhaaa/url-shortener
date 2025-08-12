@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import random
 import socket
@@ -93,12 +94,12 @@ def random_code(min_length=5,max_length=8):
     return "".join(random.choices(chars,k=2))
 
 
-
-
 def hash_code_without_entropy(url,user_id):
     full_hash_rand=hashlib.sha256(f"{url}{user_id}".encode()).hexdigest()
     short_hash=full_hash_rand[:7]
     return short_hash
+
+
 
 
 

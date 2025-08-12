@@ -1,5 +1,5 @@
 from typing import Set
-from backend.cache._cache import configure_redis
+from backend.common.custom_exceptions import register_exceptions
 from config.blacklist import BLACKLIST_PATH, load_blacklist
 from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware, LazyReloadBlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware, TimingMiddleware
 from db.db_connection import async_engine
@@ -51,15 +51,17 @@ def create_app(test:bool=False):
      app.add_middleware(AuthorizationMiddleware,paths=[f"{version_prefix}/shorten/batch"])
      
      # app.add_middleware(LazyReloadBlacklistMiddleware)
-     if test:
-         app.add_middleware(ApiKeyRateLimitMiddleware,specific_limits={f"{version_prefix}/shorten":3,f"{version_prefix}/redirect":5})
-     else:
-         app.add_middleware(ApiKeyRateLimitMiddleware)
+     # if test:
+     #     app.add_middleware(ApiKeyRateLimitMiddleware,specific_limits={f"{version_prefix}/shorten":3,f"{version_prefix}/redirect":5})
+     # else:
+     #     app.add_middleware(ApiKeyRateLimitMiddleware)
 
      app.add_middleware(AuthenticationMiddleware, session=async_session,
           paths=[f"{version_prefix}/shorten", f"{version_prefix}/shorten/batch",f"{version_prefix}/shorten/" ,f"{version_prefix}/urls",f"{version3_prefix}/urls"])
      # app.add_middleware(RequestLoggingMiddleware)
      app.add_middleware(TimingMiddleware)
+
+     register_exceptions(app)
 
      return app
 
