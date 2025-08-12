@@ -22,7 +22,7 @@ urls_router=APIRouter()
 @urls_router.post("/shorten",response_model=ShortenResponse)
 async def shorten_url(request:Request,payload:LongUrl=Depends(validate_payload),db_session=Depends(get_session)):
     user_identifier = request.state.user_identifier
-
+   
     res=await process_url(payload,db_session,user_identifier.id) 
     return res
 

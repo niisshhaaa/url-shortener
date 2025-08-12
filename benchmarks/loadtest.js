@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = { 
     stages: [
-        { duration: '4s', target:10 },   
+        { duration: '10s', target:800 },   
     ],
     thresholds: {
         http_req_duration: ['p(95)<500'], // 95% of requests should complete within 500ms
@@ -36,11 +36,11 @@ export default function(){
     // const uniqueId = __VU; // __VU is the unique ID of the current virtual user
     // const TEST_URL = `${TEST_URLL}/${uniqueId}`; 
 
-    // let postPayload = JSON.stringify({url_link:test_url}) //Javacript value to JSON string
+    // let postPayload = JSON.stringify({url_link:faze_url}) //Javacript value to JSON string
     // let postHeaders = {'Content-Type':'application/json',
-    //     'api-key':'NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs'} ;
+    //     'Authorization':'Bearer hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E'} ;
     // let postres = http.post(`${BASE_URL}/shorten`,postPayload,{headers:postHeaders})
-    // // console.log(postres.json("short_url"))
+    // // // console.log(postres.json("short_url"))
     // check(postres,{
     //     "response code was 200": (postres)=>postres.status==200,
     //     "short_url is returned": (postres)=>postres.json("short_url") !==undefined && postres.json("short_url") !==null 

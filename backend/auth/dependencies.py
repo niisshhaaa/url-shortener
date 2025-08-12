@@ -6,7 +6,6 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import  AsyncSession
 from db.db_connection import async_session
 
-#* set auto_erro to false later
 class Authentication(HTTPBearer):
     def __init__(self,auto_error=False):
         HTTPBearer.__init__(self,auto_error=auto_error)

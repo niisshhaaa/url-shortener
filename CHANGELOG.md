@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-* (future backwards‑compatible new features)
+* - `GET /v3/urls` (cursor-based paging + year filter):
+  - `limit` (int), `after_cursor` (ISO timestamp), `time_filter` (year)
+  - Returns `{ data: [...], meta: { after, earliest_year, time_filter } }`
 
 
 ### Changed
@@ -20,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 * (future bug fixes)
+
+### Deprecated
+- `GET /v2/urls`  — This endpoint is will be removed in next major release.
+  - **Migration**: Use `GET /v3/urls` with authentication (Authorization header).
+  - **Removal planned in v4.0.0 or on 2025-11-01** (choose one).
+  <!--Add warning in headers # Warning: 299 - "API v2/urls is deprecated and will be removed on 2025-11-01; see migration guide at /docs/migrate-v2-to-v3" -->
 
 ---
 

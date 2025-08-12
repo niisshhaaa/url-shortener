@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 import hashlib
 import random
@@ -23,7 +24,6 @@ async def load_url(short_code:str,session:AsyncSession):
            URL_SHORTENER.deleted_at.is_(None)))
         res=result.one_or_none()
         return res 
-
 
 async def get_userid_scode(scode,session):
     stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.password,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==scode,URL_SHORTENER.deleted_at.is_(None))
@@ -93,9 +93,10 @@ async def save_url(session,userid,original_url:str,short_code:str,have_slug:bool
                 status_code=500,
                 detail="Internal Server Error, Retry. "
             )
-    except Exception as e:
+    except Exception :
+        # log and re-raise, map to 500 at a top-level handler
         await session.rollback()
-        raise e
+        raise 
     
 
 async def increment_stats(short_code: str) -> None:
