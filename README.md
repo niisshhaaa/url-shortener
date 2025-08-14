@@ -1,4 +1,4 @@
-1. Virtual Environment Creation
+Virtual Environment Creation
    > We don't want our project dependencies to conflict with general system level dependencies, so let's just build a virtual environment and not contaminate the system environment.
 
    > python3 -m venv venv (venv python module , virtual environment name)
@@ -7,20 +7,6 @@
 
    Will use browser as HTTP client or POSTMAN for making http requests requests to server
 
-2) > pip install fastapi
-   > pip install "fastapi[standard]"
-
-3) > define path operations/api endpoints/routes to communicate with server via client using aavialable HTTP methods
-   > define path handler functions
-
-4) To run the server cd to the folder contaning main.py
-   > fastapi dev main.py
-
-To run the loadtest file for checking latency percentiles and also checking success rate of requests - cd to the folder containing loadtest.js in command prompt followed by ->
-
-> K6 run loadtest.js
-
-> Run tests using pytest
 
 
 Let's observe latency values for api request and response duration from client to server and back to client-->
@@ -70,7 +56,10 @@ Can avoid distributed locks for writes using a Lua CAS pattern: store an updated
 
 
 
+
+
 -------------**Deploy API on Render**
+
 > Create a procfile
 
 > Create api ( New -> Web service -> connect to repo -> specify details -> fill in env variables ( use the internal database url obtained after creating a connection ,add + asyncpg)
