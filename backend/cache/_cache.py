@@ -36,7 +36,6 @@ async def init_cas(redis_client):
     CAS_SCRIPT_SHA = await redis_client.script_load(CAS_LUA)
 
 
-#* correct it 
 CAS_LUA=r"""
 local key = KEYS[1]
 local new_ver = tonumber(ARGV[1] or "0")

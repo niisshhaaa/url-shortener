@@ -39,4 +39,12 @@ async def retry_scode_cache_set(key,payload,ex=TTL_DEFAULT,retries=5,base=0.2):
     return False
 
 
+async def lock_release(redis_lock):
+    try:
+        await redis_lock.release()
+    except Exception:
+        pass
+
+
+
 
