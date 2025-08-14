@@ -18,7 +18,8 @@ async def load_url(short_code:str,session:AsyncSession):
            select(
             URL_SHORTENER.original_url,
             URL_SHORTENER.password,
-            URL_SHORTENER.expiry_date
+            URL_SHORTENER.expiry_date,
+            URL_SHORTENER.updated_at
             )
            .where(URL_SHORTENER.short_code == short_code,
            URL_SHORTENER.deleted_at.is_(None)))
@@ -122,8 +123,8 @@ async def update_code_db(session,background_tasks,code,expiry_date,password):
            URL_SHORTENER.deleted_at.is_(None))
     .values(expiry_date=expiry_date,
             password=password)
-    .returning(URL_SHORTENER.short_code,URL_SHORTENER.original_url,URL_SHORTENER.expiry_date,URL_SHORTENER.password)
-    )
+    .returning(URL_SHORTENER.short_code,URL_SHORTENER.original_url,URL_SHORTENER.expiry_date,URL_SHORTENER.password,URL_SHORTENER.updated_at)
+    )  #* make it to return only updated_at and original_url not now later after trying benchmarking
     result=await session.execute(stmt)
     res=result.first() 
     await session.commit()

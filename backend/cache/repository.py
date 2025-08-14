@@ -1,8 +1,11 @@
 from asyncio import Lock
-from datetime import date
+import asyncio
+from datetime import date, datetime
 import json
+from typing import Any, Dict, Optional
 from backend.cache._cache import HITS_KEY, MISSES_KEY, TTL_DEFAULT, redis_client,_process_locks
-from backend.cache.utils import acquire_redis_lock, incr_stat, retry_scode_cache_set
+from backend.cache.services import cas_set_cache, retry_set_cas
+from backend.cache.utils import  acquire_redis_lock, incr_stat, retry_scode_cache_set,make_cached_obj
 from backend.url_shortener.repository import load_url
 from db.schema import URL_SHORTENER
 from sqlalchemy.ext.asyncio import  AsyncSession
@@ -10,14 +13,15 @@ from sqlalchemy.ext.asyncio import  AsyncSession
 
 async def utilise_cache(key):
     try:
-        cached = await redis_client.get(key)
+        cached = await redis_client.hgetall(key)
     except Exception:
         # Redis unavailable
         return None
     if cached:
         try:
-            data=json.loads(cached)
-        except Exception as e:
+            data=parse_cached_hash(cached)
+            await incr_stat(HITS_KEY)
+        except Exception:
              # corrupted payload: delete it and treat as miss
             try:
                 await redis_client.delete(key)
@@ -25,39 +29,22 @@ async def utilise_cache(key):
                 pass
             return None
         
-        await incr_stat(HITS_KEY)
-        url = URL_SHORTENER(
-            original_url=data.get("original_url"),
-            password=data.get("password"),
-            expiry_date=date.fromisoformat(data["expiry_date"]) if data.get("expiry_date") else None
-        )
-        return url
-    return None
+        return data
 
-
-async def loaddb_nset_cache(key,short_code,session,bg_tasks,ttl):
-        cached_url=await utilise_cache(key)
-        if cached_url:
-            return cached_url
-        
-        # no cache and we hold the lock → load from DB
-        await incr_stat(MISSES_KEY)
-        url_obj=await load_url(short_code,session)
-
-        if url_obj:
-            
-            payload = {
-                "original_url": url_obj.original_url,
-                "password": url_obj.password,
-                "expiry_date": url_obj.expiry_date if url_obj.expiry_date else None
-            }
-            payload=json.dumps(payload,default=str)
-            try:
-                await redis_client.set(key, payload, ex=ttl)
-            except Exception:
-                bg_tasks.add_task(retry_scode_cache_set, key, payload, TTL_DEFAULT)
-            
-        return url_obj 
+def parse_cached_hash(h: Dict[str, Any]):
+ 
+    orig = h.get("original_url")
+    if not orig:
+        return None
+    pwd = h.get("password") or None
+    exp = date.fromisoformat(h["expiry_date"]) if h.get("expiry_date") else None
+    
+    ver = h.get("version")
+    try:
+        ver_int = int(ver) if ver is not None else 0
+    except Exception:
+        ver_int = 0
+    return make_cached_obj(orig, pwd, exp, ver_int)
 
 async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
     key = f"url:{short_code}"
@@ -66,24 +53,18 @@ async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
     if cached_url:
         return cached_url
     
-    # Cache miss : Only one coroutine should hit the DB for a cache-miss
-    # in case if more than 1 request reached at this point to fetch from db .lock one request and complete it fully and then proceed one by one .
-    # get or create per-process lock 
-
     redis_lock,acquired=await acquire_redis_lock(key)
-    
+    url_obj=None
+
     if acquired:
-        url_obj=None
         try:
-            url_obj=await loaddb_nset_cache(key,short_code,session,bg_tasks,ttl)
+            url_obj=await load_url(short_code,session)
         finally:
             # release lock
             try:
                 await redis_lock.release()
             except Exception:
                 pass
-        return url_obj
-    
     
     lock=_process_locks.get(short_code)
     if lock is None:
@@ -96,24 +77,52 @@ async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
             return cached_url
         
         # no cache and we hold the lock → load from DB
-        await incr_stat(MISSES_KEY)
         url_obj=await load_url(short_code,session)
+    
+    await incr_stat(MISSES_KEY)
 
-        print("url_obj",url_obj)
-        
-        if url_obj:
-            
-            payload = {
-                "original_url": url_obj.original_url,
-                "password": url_obj.password,
-                "expiry_date": url_obj.expiry_date if url_obj.expiry_date else None
-            }
-            try:
-                await redis_client.set(key, json.dumps(payload,default=str), ex=ttl)
-            except Exception:
-                bg_tasks.add_task(retry_scode_cache_set, key, payload, TTL_DEFAULT)
-            
+    if not url_obj:
         return url_obj
+
+    payload = {
+        "original_url": url_obj.original_url,
+        "password": url_obj.password,
+        "expiry_date": url_obj.expiry_date,
+    }
+
+    version_val = int(url_obj.updated_at.timestamp())
+    
+    # try:
+    #     ok = await cas_set_cache(key, payload, version_val,ttl)
+    #     if not ok:
+    #         # CAS refused because cache has newer -> that's fine, return whatever is in cache (re-read)
+    #         cached_url=await utilise_cache(key)
+    #         if cached_url:
+    #             await incr_stat(HITS_KEY)
+    #             return cached_url
+    # except Exception:  #* chnage it to specific errors 
+    #     # Redis error: schedule background retry (if background_tasks given) or create-task
+    #     if bg_tasks is not None:
+    #         bg_tasks.add_task(retry_set_cas, key, payload,version_val, ttl)
+
+    print("call set")
+    ok = await cas_set_cache(key, payload, version_val,ttl)
+    if not ok:
+        # CAS refused because cache has newer -> that's fine, return whatever is in cache (re-read)
+        cached_url=await utilise_cache(key)
+        if cached_url:
+            await incr_stat(HITS_KEY)
+            return cached_url
+        
+    
+    if ok:
+        return url_obj
+    
+
+    
+    
+
+    
     
 
 

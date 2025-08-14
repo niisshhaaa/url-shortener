@@ -1,5 +1,14 @@
 import asyncio
+from datetime import date
+from types import SimpleNamespace
+from typing import Optional
 from backend.cache._cache import REDIS_LOCK_BLOCKING_TIMEOUT, REDIS_LOCK_TIMEOUT, TTL_DEFAULT, redis_client
+
+
+# ---- Small typed container to return cached rows ----
+def make_cached_obj(original_url: str, password: Optional[str], expiry_date: Optional[date], version: int):
+    # Using SimpleNamespace instead of SQLAlchemy model avoids coupling; attributes mimic model
+    return SimpleNamespace(original_url=original_url, password=password, expiry_date=expiry_date, updated_at=version)
 
 async def incr_stat(key: str):
     try:
@@ -29,5 +38,6 @@ async def retry_scode_cache_set(key,payload,ex=TTL_DEFAULT,retries=5,base=0.2):
             await asyncio.sleep(delay)
             delay*=2
     return False
+
 
 
