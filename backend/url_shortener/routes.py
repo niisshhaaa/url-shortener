@@ -68,9 +68,9 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     db_session:AsyncSession=Depends(get_session)):
     
     # await cache_clear()
-    url=await load_url(short_code,db_session)
+    # url=await load_url(short_code,db_session)
     
-    # url=await cache_load_url(short_code,db_session,background_tasks)
+    url=await cache_load_url(short_code,db_session,background_tasks)
 
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
@@ -86,6 +86,7 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
     res=RedirectResponse(url=url["original_url"],status_code=307)
     #  Kick off analytics increment after sending redirect in same thread
     background_tasks.add_task(increment_stats, short_code)
+
 
     return res
 
