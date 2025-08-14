@@ -2,9 +2,8 @@ from asyncio import Lock
 from datetime import date
 import json
 from backend.cache._cache import HITS_KEY, MISSES_KEY, TTL_DEFAULT, redis_client,_process_locks
-from backend.cache.utils import acquire_redis_lock, incr_stat, retry_scode_cache_set
+from backend.cache.utils import acquire_redis_lock, incr_stat,retry_scode_cache_set
 from backend.url_shortener.repository import load_url
-from db.schema import URL_SHORTENER
 from sqlalchemy.ext.asyncio import  AsyncSession
 
 
@@ -26,12 +25,11 @@ async def utilise_cache(key):
             return None
         
         await incr_stat(HITS_KEY)
-        url = URL_SHORTENER(
-            original_url=data.get("original_url"),
-            password=data.get("password"),
-            expiry_date=date.fromisoformat(data["expiry_date"]) if data.get("expiry_date") else None
-        )
-        return url
+        
+        if data["expiry_date"]:
+            data["expiry_date"]= date.fromisoformat(data["expiry_date"])
+        return data
+        # return make_cached_obj(original_url, password, expiry_date)
     return None
 
 
@@ -47,9 +45,9 @@ async def loaddb_nset_cache(key,short_code,session,bg_tasks,ttl):
         if url_obj:
             
             payload = {
-                "original_url": url_obj.original_url,
-                "password": url_obj.password,
-                "expiry_date": url_obj.expiry_date if url_obj.expiry_date else None
+                "original_url": url_obj["original_url"],
+                "password": url_obj["password"],
+                "expiry_date": url_obj["expiry_date"]
             }
             payload=json.dumps(payload,default=str)
             try:
@@ -99,8 +97,6 @@ async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
         await incr_stat(MISSES_KEY)
         url_obj=await load_url(short_code,session)
 
-        print("url_obj",url_obj)
-        
         if url_obj:
             
             payload = {

@@ -17,7 +17,6 @@ async def update_short_code_cache(code,res,background_tasks):
         try:
             try:
                 await redis_client.set(key, payload, ex=TTL_DEFAULT)
-                print("cache set")
             except Exception:
                 # schedule retry
                 background_tasks.add_task(retry_scode_cache_set, key, payload, TTL_DEFAULT)
