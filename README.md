@@ -65,7 +65,9 @@ WITH CACHE
 Note: We intentionally do not perform per-hit Redis counter increments on the hot path in production — collect metrics via Prometheus client or batch writes instead to avoid extra round-trips.
 
 > Option for lower latency (experiment)
-Can avoid distributed locks for writes using a Lua CAS pattern: store an updated_at (or monotonic version) in both DB and cache, and use a tiny Lua script (EVAL) that atomically writes only if new_version >= existing_version. This is server-side atomic and reduces round trips. Recommended experiment if you want to trade added implementation work for somewhat lower latency.
+Can avoid distributed locks for writes using a Lua CAS pattern: store an updated_at (or monotonic version) in both DB and cache, and use a tiny Lua script (EVAL) that atomically writes only if new_version >= existing_version. This is server-side atomic and reduces round trips. Locking will still be required for reads in order to prevent db thundering herd for concurrent requests.
+<img width="1828" height="921" alt="image (5)" src="https://github.com/user-attachments/assets/d7487b88-d254-4b5d-8b3b-67af452b7d80" />
+
 
 
 -------------**Deploy API on Render**
