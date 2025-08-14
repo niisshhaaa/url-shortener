@@ -84,40 +84,23 @@ async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
     if not url_obj:
         return url_obj
 
-    payload = {
-        "original_url": url_obj.original_url,
-        "password": url_obj.password,
-        "expiry_date": url_obj.expiry_date,
-    }
-
-    version_val = int(url_obj.updated_at.timestamp())
     
-    # try:
-    #     ok = await cas_set_cache(key, payload, version_val,ttl)
-    #     if not ok:
-    #         # CAS refused because cache has newer -> that's fine, return whatever is in cache (re-read)
-    #         cached_url=await utilise_cache(key)
-    #         if cached_url:
-    #             await incr_stat(HITS_KEY)
-    #             return cached_url
-    # except Exception:  #* chnage it to specific errors 
-    #     # Redis error: schedule background retry (if background_tasks given) or create-task
-    #     if bg_tasks is not None:
-    #         bg_tasks.add_task(retry_set_cas, key, payload,version_val, ttl)
-
-    print("call set")
-    ok = await cas_set_cache(key, payload, version_val,ttl)
-    if not ok:
-        # CAS refused because cache has newer -> that's fine, return whatever is in cache (re-read)
-        cached_url=await utilise_cache(key)
-        if cached_url:
-            await incr_stat(HITS_KEY)
-            return cached_url
-        
+    version_val = int(url_obj["updated_at"].timestamp())
     
-    if ok:
+    try:
+        ok = await cas_set_cache(key, url_obj, version_val,ttl)
+        if not ok:
+            # CAS refused because cache has newer -> that's fine, return whatever is in cache (re-read)
+            cached_url=await utilise_cache(key)
+            if cached_url:
+                await incr_stat(HITS_KEY)
+                return cached_url
         return url_obj
-    
+    except Exception:  #* chnage it to specific errors 
+        # Redis error: schedule background retry (if background_tasks given) or create-task
+        if bg_tasks is not None:
+            bg_tasks.add_task(retry_set_cas, key, url_obj,version_val, ttl)
+
 
     
     

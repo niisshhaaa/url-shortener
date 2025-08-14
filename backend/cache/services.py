@@ -45,10 +45,6 @@ async def cas_set_cache(key: str, payload: Dict[str, Any], version_int, ttl: int
     password = payload.get("password") or ""
     expiry_date = payload.get("expiry_date") or ""
 
-    print(version_int,ttl,original_url,password,expiry_date)
-
-    print("here")
-    
     return_code = await redis_client.evalsha(
         CAS_SCRIPT_SHA,
         1,
@@ -59,8 +55,6 @@ async def cas_set_cache(key: str, payload: Dict[str, Any], version_int, ttl: int
         expiry_date,
         str(int(ttl)),
     )
-
-    print("retcode",return_code)
 
     return bool(return_code)
 

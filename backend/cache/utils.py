@@ -7,8 +7,7 @@ from backend.cache._cache import REDIS_LOCK_BLOCKING_TIMEOUT, REDIS_LOCK_TIMEOUT
 
 # ---- Small typed container to return cached rows ----
 def make_cached_obj(original_url: str, password: Optional[str], expiry_date: Optional[date], version: int):
-    # Using SimpleNamespace instead of SQLAlchemy model avoids coupling; attributes mimic model
-    return SimpleNamespace(original_url=original_url, password=password, expiry_date=expiry_date, updated_at=version)
+    return {"original_url":original_url,"password":password,"expiry_date":expiry_date,"version":version}
 
 async def incr_stat(key: str):
     try:

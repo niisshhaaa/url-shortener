@@ -68,24 +68,25 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     db_session:AsyncSession=Depends(get_session)):
     
     # await cache_clear()
-    # url=await load_url(short_code,db_session)
+    url=await load_url(short_code,db_session)
     
-    url=await cache_load_url(short_code,db_session,background_tasks)
+    # url=await cache_load_url(short_code,db_session,background_tasks)
 
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
     
-    if url.password :
-        if url.password!=password:  #passwords should certainly be hashed in auth scenarios 
+    if url["password"] :
+        if url["password"]!=password:  #passwords should certainly be hashed in auth scenarios 
             raise HTTPException(status_code=403,detail="Invalid password as short code is protected")
 
 
-    if url.expiry_date and url.expiry_date< datetime.now().date():
+    if url["expiry_date"] and url["expiry_date"]< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
 
-    res=RedirectResponse(url=url.original_url,status_code=307)
+    res=RedirectResponse(url=url["original_url"],status_code=307)
     #  Kick off analytics increment after sending redirect in same thread
     background_tasks.add_task(increment_stats, short_code)
+
 
     return res
 
