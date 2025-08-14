@@ -68,6 +68,7 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     db_session:AsyncSession=Depends(get_session)):
     
     # await cache_clear()
+    # url=await load_url(short_code,db_session)
     
     url=await cache_load_url(short_code,db_session,background_tasks)
 
