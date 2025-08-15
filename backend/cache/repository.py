@@ -5,13 +5,13 @@ import json
 from typing import Any, Dict, Optional
 from backend.cache._cache import HITS_KEY, MISSES_KEY, TTL_DEFAULT, redis_client,_process_locks
 from backend.cache.services import cas_set_cache, retry_set_cas
-from backend.cache.utils import  acquire_redis_lock, incr_stat, lock_release, retry_scode_cache_set,make_cached_obj
+from backend.cache.utils import  acquire_redis_lock, incr_stat, lock_release,make_cached_obj
 from backend.url_shortener.repository import load_url
-from db.schema import URL_SHORTENER
 from sqlalchemy.ext.asyncio import  AsyncSession
 
 
 async def utilise_cache(key):
+    
     try:
         cached = await redis_client.hgetall(key)
     except Exception:
@@ -47,7 +47,7 @@ def parse_cached_hash(h: Dict[str, Any]):
     return make_cached_obj(orig, pwd, exp, ver_int)
 
 
-async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
+async def cache_load_url(session:AsyncSession,short_code,bg_tasks,ttl:int=3600):
     key = f"url:{short_code}"
     #  Attempt to fetch from Redis
     cached_url=await utilise_cache(key)
@@ -64,7 +64,7 @@ async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
             return cached_url
         
         try:
-            url_obj=await load_url(short_code,session)
+            url_obj=await load_url(session,short_code)
         finally:
             # release lock
             await lock_release(redis_lock)
@@ -80,8 +80,8 @@ async def cache_load_url(short_code,session:AsyncSession,bg_tasks,ttl:int=3600):
                 return cached_url
             
             # no cache and we hold the lock → load from DB
-            url_obj=await load_url(short_code,session)
-            
+            url_obj=await load_url(session,short_code)
+
     await incr_stat(MISSES_KEY)
 
     if not url_obj:

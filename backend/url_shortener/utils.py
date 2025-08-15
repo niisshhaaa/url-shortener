@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from datetime import datetime ,timedelta
 from backend.cache._cache import redis_client
-
+from backend.__init__ import logger
 
 
 pass_context=CryptContext(schemes=['bcrypt'])
@@ -100,10 +100,31 @@ def hash_code_without_entropy(url,user_id):
     return short_hash
 
 
+async def general_retry(func, retry_exceptions, on_retry_log,retries=3, base_delay=0.1,max_delay=0.5):
+    last_exc: BaseException | None = None
+    for i in range(retries):
+        try:
+            return await func()
+        except retry_exceptions as e:
+            
+            last_exc = e
+            delay=min(max_delay, base_delay * (2 ** i))
+            if on_retry_log:
+                on_retry_log(i,retries,delay,e)
+            await asyncio.sleep(delay)
+    raise last_exc
+
+def on_retry_log(attempt,retries,delay, exc):
+    logger.debug("Retry attempt %d/%d after %0.3fs due to %s", attempt, retries, delay, type(exc).__name__,str(exc))
 
 
-
-
+def make_attempt(session_factory,func, *args, **kwargs ):
+    async def _attempt():
+        async with session_factory() as session:
+            url=await func(session,*args, **kwargs)
+            return url
+        
+    return _attempt
 
 
 

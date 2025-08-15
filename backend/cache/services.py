@@ -1,10 +1,14 @@
 import asyncio
 import json
+import random
 from typing import Any, Dict, Optional
 from backend.cache._cache import CAS_LUA, HITS_KEY, TTL_DEFAULT, redis_client
-from backend.cache.utils import incr_stat
+from backend.cache.utils import incr_stat, redis_retry_log
+from backend.url_shortener.utils import general_retry
+from redis.exceptions import ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError
+from backend.__init__ import logger
 
-CAS_SCRIPT_SHA: Optional[str] = None
+
 
 
 async def update_short_code_cache(code,res,background_tasks):
@@ -37,15 +41,27 @@ async def cas_set_cache(key: str, payload: Dict[str, Any], ttl: int = TTL_DEFAUL
         raise RuntimeError("redis_client not initialized")  #* check these it should do something else 
 
     if CAS_SCRIPT_SHA is None:
-        # best-effort: try to load script now
-        CAS_SCRIPT_SHA = await redis_client.script_load(CAS_LUA)
+        try:
+            CAS_SCRIPT_SHA = await general_retry(
+                lambda: redis_client.script_load(CAS_LUA),
+                retry_exceptions=(RedisConnectionError, RedisTimeoutError),
+                on_retry_log=redis_retry_log,
+                retries=3,
+                base_delay=0.05,
+                max_delay=0.5,
+            )
+        except Exception as exc:
+            # Script couldn't be loaded — propagate to caller so they can schedule background retry
+            raise
 
     original_url = payload.get("original_url")
     password = payload.get("password") or ""
     expiry_date = payload.get("expiry_date") or ""
     version_int = int(payload.get("updated_at").timestamp())
-
-    return_code = await redis_client.evalsha(
+    
+    # we can add few sync retries before sending to background tasks 
+    try:
+        return_code = await redis_client.evalsha(
         CAS_SCRIPT_SHA,
         1,
         key,
@@ -54,9 +70,12 @@ async def cas_set_cache(key: str, payload: Dict[str, Any], ttl: int = TTL_DEFAUL
         password,
         expiry_date,
         str(int(ttl)),
-    )
+        )
 
-    return bool(return_code)
+        return bool(return_code)
+    except Exception as exc:
+        # Redis error — propagate to caller so they can schedule background retry
+        raise exc
 
 
 async def retry_set_cas(key: str, payload, ttl: int = TTL_DEFAULT,
@@ -65,7 +84,15 @@ async def retry_set_cas(key: str, payload, ttl: int = TTL_DEFAULT,
         try:
             ok = await cas_set_cache(key, payload, ttl)
             return ok
-        except Exception:
-            await asyncio.sleep(base_delay * (2 ** i))
+        except (RedisConnectionError, RedisTimeoutError) as e:
+            # backoff with jitter
+            delay = min(10.0, base_delay * (2 ** i))
+            delay = random.uniform(0, delay)
+            logger.warning("retry_set_cas attempt %d failed; sleeping %.2fs: %s", i + 1, delay, e)
+            await asyncio.sleep(delay)
+        except Exception as e:
+            # non-transient or script problem: try a couple more times or give up
+            logger.exception("retry_set_cas fatal error: %s", e)
+            await asyncio.sleep(min(5.0, base_delay * (2 ** i)))
     # final attempt failed
     return False

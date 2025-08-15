@@ -12,8 +12,8 @@ from db.schema import URL_SHORTENER
 from db.db_connection import async_session
 
 
-async def load_url(short_code:str,session:AsyncSession):
-   
+async def load_url(session:AsyncSession,short_code:str):
+
         result = await session.execute(
            select(
             URL_SHORTENER.original_url,
