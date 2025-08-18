@@ -77,8 +77,8 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
     #     url=await load_url(session,short_code)
 
     db_circuit = CircuitBreaker(fail_threshold=3, recovery_time=3.0)
-
-    attempt = await make_attempt(session_factory, cache_load_url, short_code, background_tasks)
+    
+    attempt = await make_attempt(session_factory, cache_load_url,short_code, background_tasks)
     url=await general_retry(attempt,db_circuit, (OperationalError,),on_retry_log=on_retry_log,retries=db_circuit.fail_threshold)
 
     if url is None:

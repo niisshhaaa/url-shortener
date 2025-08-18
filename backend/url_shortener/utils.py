@@ -110,16 +110,26 @@ async def general_retry(func, db_circuit,retry_exceptions, on_retry_log,retries=
     for i in range(retries):
        
         try:
+            raise OperationalError("Database is unavailable, cannot load URL.",None,None)
             res = await func()
             await db_circuit.record_success()
             return res
         except OperationalError as e :
+            i=0
             while await db_circuit.allow_request():
-                print("OperationalError occurred, retrying...")
-                await db_circuit.record_failure()
-                delay=min(max_delay, base_delay * (2 ** i)) 
-                await asyncio.sleep(delay)
-            raise e
+                
+                try:
+                    # if i<3:
+                    raise OperationalError("Database is unavailable, cannot load URL.",None,None)
+                    res = await func()
+                    await db_circuit.record_success()
+                    return res
+                except OperationalError :
+                    await db_circuit.record_failure()
+                    delay=min(max_delay, base_delay * (2 ** i)) 
+                    await asyncio.sleep(delay)
+                i+=1
+            raise e 
         except retry_exceptions as e:
             last_exc = e
             delay=min(max_delay, base_delay * (2 ** i))
@@ -134,7 +144,6 @@ def on_retry_log(attempt,retries,delay, exc):
 
 
 async def make_attempt(session_factory,func, *args, **kwargs ):
-
     async def attempt():
         async with session_factory() as session:
             url=await func(session,*args, **kwargs)

@@ -49,7 +49,6 @@ def parse_cached_hash(h: Dict[str, Any]):
 
 
 async def cache_load_url(session:AsyncSession,short_code,bg_tasks,ttl:int=3600):
-    # raise OperationalError("Database is unavailable, cannot load URL.",None,None)
     key = f"url:{short_code}"
     #  Attempt to fetch from Redis
     cached_url=await utilise_cache(key)
