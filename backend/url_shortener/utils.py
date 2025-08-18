@@ -107,7 +107,6 @@ def hash_code_without_entropy(url,user_id):
 async def general_retry(func, db_circuit,retry_exceptions, on_retry_log,retries=3, base_delay=0.1,max_delay=0.5):
     last_exc = None
 
-    i=0
     for i in range(retries):
        
         try:
@@ -118,12 +117,7 @@ async def general_retry(func, db_circuit,retry_exceptions, on_retry_log,retries=
             while await db_circuit.allow_request():
                 print("OperationalError occurred, retrying...")
                 await db_circuit.record_failure()
-
-                last_exc = e
-                delay=min(max_delay, base_delay * (2 ** i))
-                if on_retry_log:
-                    on_retry_log(i,retries,delay,e)
-                i+=1
+                delay=min(max_delay, base_delay * (2 ** i)) 
                 await asyncio.sleep(delay)
             raise e
         except retry_exceptions as e:

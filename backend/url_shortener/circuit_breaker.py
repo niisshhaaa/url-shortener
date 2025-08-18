@@ -68,7 +68,6 @@ class CircuitBreaker:
             self._failure_count = self._failure_count + 1
 
             if self._half_open_probe_in_progress:
-                print("ehere")
                 self._half_open_probe_in_progress = False
                 self._open_until = time.time() + self.recovery_time
                 self._failure_count = 0

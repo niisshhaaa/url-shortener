@@ -67,6 +67,10 @@ async def cache_load_url(session:AsyncSession,short_code,bg_tasks,ttl:int=3600):
         
         try:
             url_obj=await load_url(session,short_code)
+            await incr_stat(MISSES_KEY)
+            if not url_obj:
+                return url_obj
+            cached_url_obj=await set_cache_with_retries(key,url_obj,bg_tasks,ttl)
         finally:
             # release lock
             await lock_release(redis_lock)
@@ -83,13 +87,19 @@ async def cache_load_url(session:AsyncSession,short_code,bg_tasks,ttl:int=3600):
             
             # no cache and we hold the lock → load from DB
             url_obj=await load_url(session,short_code)
-
-    await incr_stat(MISSES_KEY)
-
-    if not url_obj:
-        return url_obj
+            await incr_stat(MISSES_KEY)
+            if not url_obj:
+                return url_obj
+            cached_url_obj=await set_cache_with_retries(key,url_obj,bg_tasks,ttl)
 
     
+    if cached_url_obj:
+        return cached_url_obj
+    
+    return url_obj
+
+
+async def set_cache_with_retries(key,url_obj,bg_tasks,ttl):
     try:
         ok = await cas_set_cache(key, url_obj,ttl)
         if not ok:
@@ -103,8 +113,6 @@ async def cache_load_url(session:AsyncSession,short_code,bg_tasks,ttl:int=3600):
         # Redis error: schedule background retry (if background_tasks given) or create-task
         if bg_tasks is not None:
             bg_tasks.add_task(retry_set_cas, key, url_obj, ttl)
-
-    return url_obj
 
 
 
