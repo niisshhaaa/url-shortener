@@ -36,20 +36,18 @@ class CircuitBreaker:
         async with self._lock:
 
             # attempts after which to stop retrying at all
-            if self._attempt>=2:
-                print("Circuit breaker not allowing request.")
-                return False
+            # if self._attempt>=2:
+            #     print("Circuit breaker not allowing request.")
+            #     return False
             
             # wait until circuit is open 
-            now=time.time()
-            if now < self._open_until:
-                print("sleeping")
-                self._failure_count=0
-                await asyncio.sleep(delay=self._open_until-now)
-                return True
+            if time.time() < self._open_until:
+                print("open")
+                return False
                 
             # after circuit recovery time is over(circuit is not open) , try 1 ping request
-            if self._open_until != 0.0 and now>=self._open_until:
+            if self._open_until != 0.0 and time.time() >= self._open_until:
+                print("probe")
                 if not self._half_open_probe_in_progress:
                     self._half_open_probe_in_progress = True
                     return True
@@ -60,29 +58,22 @@ class CircuitBreaker:
         
     async def record_success(self)->None:
         async with self._lock:
-            if time.time() < self._open_until:
-                # still in open state
-                return
             self._failure_count = 0
             self._open_until = 0.0
             self._half_open_probe_in_progress = False
 
     async def record_failure(self)->None:
         async with self._lock:
-            if time.time() < self._open_until:
-                # still in open state
-                return
             self._failure_count = self._failure_count + 1
 
             if self._half_open_probe_in_progress:
                 self._half_open_probe_in_progress = False
                 self._open_until = time.time() + self.recovery_time
-                self._attempt+=1
+                # self._attempt+=1
             
             if self._failure_count >= self.fail_threshold:
                 self._open_until = time.time() + self.recovery_time
-                # keep fail_count at threshold (or reset to 0 )
-                self._attempt+=1
+                # self._attempt+=1
 
             print("Failure count:", self._failure_count)
 
@@ -98,3 +89,4 @@ class CircuitBreaker:
                 "attempt": self._attempt
             }
     
+db_circuit = CircuitBreaker(fail_threshold=3, recovery_time=5.0)

@@ -115,21 +115,21 @@ async def general_retry(func, db_circuit,retry_exceptions, on_retry_log,retries=
             await db_circuit.record_success()
             return res
         except OperationalError as e :
-            i=0
-            while await db_circuit.allow_request():
-                
-                try:
-                    # if i<3:
-                    raise OperationalError("Database is unavailable, cannot load URL.",None,None)
-                    res = await func()
-                    await db_circuit.record_success()
-                    return res
-                except OperationalError :
-                    await db_circuit.record_failure()
-                    delay=min(max_delay, base_delay * (2 ** i)) 
-                    await asyncio.sleep(delay)
-                i+=1
-            raise e 
+            if not await db_circuit.allow_request():
+                state = await db_circuit.get_state()
+                retry_after = max(0, int(state["open_until"] - time.time()))
+                await db_circuit.record_failure()
+                # short-circuit: don't hit DB
+                raise HTTPException(status_code=503, detail="Service temporarily unavailable",
+                                    headers={"Retry-After": str(retry_after)})
+            
+            await db_circuit.record_failure()
+            
+            print("first trials")
+            delay=min(max_delay, base_delay * (2 ** i)) 
+            await asyncio.sleep(delay)
+            
+            last_exc=e
         except retry_exceptions as e:
             last_exc = e
             delay=min(max_delay, base_delay * (2 ** i))

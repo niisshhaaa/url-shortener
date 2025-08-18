@@ -1,5 +1,6 @@
 import asyncio
 from email.utils import format_datetime
+import time
 from typing import List, Optional, Union
 from fastapi import APIRouter, Header
 from fastapi import Request, Depends, HTTPException,BackgroundTasks
@@ -18,6 +19,7 @@ from.services import process_url
 from datetime import datetime, timedelta
 from backend.cache._cache import cache_clear
 from sqlalchemy.exc import OperationalError
+from backend.url_shortener.circuit_breaker import db_circuit
 
 urls_router=APIRouter()
 
@@ -75,11 +77,19 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
     # return 
     # async with session_factory() as session:
     #     url=await load_url(session,short_code)
-
-    db_circuit = CircuitBreaker(fail_threshold=3, recovery_time=3.0)
     
+    #check is db circuit breaker is open or closed 
+    if not await db_circuit.allow_request():
+        state = await db_circuit.get_state()
+        retry_after = max(0, int(state["open_until"] - time.time()))
+        # short-circuit: don't hit DB
+        await db_circuit.record_failure()
+        print("hereee")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable",
+                            headers={"Retry-After": str(retry_after)})
+
     attempt = await make_attempt(session_factory, cache_load_url,short_code, background_tasks)
-    url=await general_retry(attempt,db_circuit, (OperationalError,),on_retry_log=on_retry_log,retries=db_circuit.fail_threshold)
+    url=await general_retry(attempt,db_circuit, (OperationalError,),on_retry_log=on_retry_log,retries=6)
 
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
