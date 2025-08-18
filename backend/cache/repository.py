@@ -8,6 +8,7 @@ from backend.cache.services import cas_set_cache, retry_set_cas
 from backend.cache.utils import  acquire_redis_lock, incr_stat, lock_release,make_cached_obj
 from backend.url_shortener.repository import load_url
 from sqlalchemy.ext.asyncio import  AsyncSession
+from sqlalchemy.exc import OperationalError
 
 
 async def utilise_cache(key):
@@ -48,6 +49,7 @@ def parse_cached_hash(h: Dict[str, Any]):
 
 
 async def cache_load_url(session:AsyncSession,short_code,bg_tasks,ttl:int=3600):
+    # raise OperationalError("Database is unavailable, cannot load URL.",None,None)
     key = f"url:{short_code}"
     #  Attempt to fetch from Redis
     cached_url=await utilise_cache(key)

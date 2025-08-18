@@ -3,6 +3,7 @@ import hashlib
 import random
 import socket
 import string
+import time
 from urllib.parse import urlparse
 from fastapi import HTTPException
 from passlib.context import CryptContext
@@ -12,9 +13,12 @@ from pydantic import BaseModel
 from datetime import datetime ,timedelta
 from backend.cache._cache import redis_client
 from backend.__init__ import logger
+from backend.common.custom_exceptions import DBUnavailable
+from sqlalchemy.exc import OperationalError
 
 
 pass_context=CryptContext(schemes=['bcrypt'])
+
 
 SECRET_KEY=os.getenv("SUPER_SECRET_KEY")
 ALGORITHM=os.getenv("ALGORITHM")
@@ -100,33 +104,47 @@ def hash_code_without_entropy(url,user_id):
     return short_hash
 
 
-async def general_retry(func, retry_exceptions, on_retry_log,retries=3, base_delay=0.1,max_delay=0.5):
-    last_exc: BaseException | None = None
+async def general_retry(func, db_circuit,retry_exceptions, on_retry_log,retries=3, base_delay=0.1,max_delay=0.5):
+    last_exc = None
+
+    i=0
     for i in range(retries):
+       
         try:
-            return await func()
+            res = await func()
+            await db_circuit.record_success()
+            return res
+        except OperationalError as e :
+            while await db_circuit.allow_request():
+                print("OperationalError occurred, retrying...")
+                await db_circuit.record_failure()
+
+                last_exc = e
+                delay=min(max_delay, base_delay * (2 ** i))
+                if on_retry_log:
+                    on_retry_log(i,retries,delay,e)
+                i+=1
+                await asyncio.sleep(delay)
+            raise e
         except retry_exceptions as e:
-            
             last_exc = e
             delay=min(max_delay, base_delay * (2 ** i))
             if on_retry_log:
                 on_retry_log(i,retries,delay,e)
             await asyncio.sleep(delay)
+
     raise last_exc
 
 def on_retry_log(attempt,retries,delay, exc):
     logger.debug("Retry attempt %d/%d after %0.3fs due to %s", attempt, retries, delay, type(exc).__name__,str(exc))
 
 
-def make_attempt(session_factory,func, *args, **kwargs ):
-    async def _attempt():
+async def make_attempt(session_factory,func, *args, **kwargs ):
+
+    async def attempt():
         async with session_factory() as session:
             url=await func(session,*args, **kwargs)
             return url
         
-    return _attempt
-
-
-
-        
+    return attempt
 

@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.cache.repository import cache_load_url
+from backend.url_shortener.circuit_breaker import CircuitBreaker
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
 from backend.url_shortener.utils import general_retry, make_attempt, on_retry_log
 from .repository import del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
@@ -70,12 +71,15 @@ async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     password:Optional[str]=Query(None),
                     session_factory:AsyncSession=Depends(get_session_factory)):
     
+    # await cache_clear()
+    # return 
     # async with session_factory() as session:
-    #     await cache_clear()
     #     url=await load_url(session,short_code)
 
-    attempt = make_attempt(session_factory, cache_load_url, short_code, background_tasks)
-    url=await general_retry(attempt, (OperationalError,),on_retry_log=on_retry_log)
+    db_circuit = CircuitBreaker(fail_threshold=3, recovery_time=3.0)
+
+    attempt = await make_attempt(session_factory, cache_load_url, short_code, background_tasks)
+    url=await general_retry(attempt,db_circuit, (OperationalError,),on_retry_log=on_retry_log,retries=db_circuit.fail_threshold)
 
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
