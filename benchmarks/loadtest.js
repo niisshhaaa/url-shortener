@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = { 
     stages: [
-        { duration: '10s', target:800 },   
+        { duration: '5s', target:100 },   
     ],
     thresholds: {
         http_req_duration: ['p(95)<500'], // 95% of requests should complete within 500ms
@@ -70,6 +70,6 @@ export default function(){
         "redirection is correct" : (getres) =>getres.headers['Location']===faze_url
     });
 
-    sleep(1);
+    // sleep(1);
 
 }

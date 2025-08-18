@@ -3,6 +3,7 @@ import hashlib
 import random
 import socket
 import string
+import time
 from urllib.parse import urlparse
 from fastapi import HTTPException
 from passlib.context import CryptContext
@@ -11,10 +12,13 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from datetime import datetime ,timedelta
 from backend.cache._cache import redis_client
-
+from backend.__init__ import logger
+from backend.common.custom_exceptions import DBUnavailable
+from sqlalchemy.exc import OperationalError
 
 
 pass_context=CryptContext(schemes=['bcrypt'])
+
 
 SECRET_KEY=os.getenv("SUPER_SECRET_KEY")
 ALGORITHM=os.getenv("ALGORITHM")
@@ -100,12 +104,50 @@ def hash_code_without_entropy(url,user_id):
     return short_hash
 
 
+async def general_retry(func, db_circuit,retry_exceptions, on_retry_log,retries=3, base_delay=0.1,max_delay=0.5):
+    last_exc = None
+
+    for i in range(retries):
+       
+        try:
+            raise OperationalError("Database is unavailable, cannot load URL.",None,None)
+            res = await func()
+            await db_circuit.record_success()
+            return res
+        except OperationalError as e :
+            if not await db_circuit.allow_request():
+                state = await db_circuit.get_state()
+                retry_after = max(0, int(state["open_until"] - time.time()))
+                await db_circuit.record_failure()
+                # short-circuit: don't hit DB
+                raise HTTPException(status_code=503, detail="Service temporarily unavailable",
+                                    headers={"Retry-After": str(retry_after)})
+            
+            await db_circuit.record_failure()
+            
+            print("first trials")
+            delay=min(max_delay, base_delay * (2 ** i)) 
+            await asyncio.sleep(delay)
+            
+            last_exc=e
+        except retry_exceptions as e:
+            last_exc = e
+            delay=min(max_delay, base_delay * (2 ** i))
+            if on_retry_log:
+                on_retry_log(i,retries,delay,e)
+            await asyncio.sleep(delay)
+
+    raise last_exc
+
+def on_retry_log(attempt,retries,delay, exc):
+    logger.debug("Retry attempt %d/%d after %0.3fs due to %s", attempt, retries, delay, type(exc).__name__,str(exc))
 
 
-
-
-
-
-
+async def make_attempt(session_factory,func, *args, **kwargs ):
+    async def attempt():
+        async with session_factory() as session:
+            url=await func(session,*args, **kwargs)
+            return url
         
+    return attempt
 

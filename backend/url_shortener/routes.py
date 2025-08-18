@@ -1,5 +1,6 @@
 import asyncio
 from email.utils import format_datetime
+import time
 from typing import List, Optional, Union
 from fastapi import APIRouter, Header
 from fastapi import Request, Depends, HTTPException,BackgroundTasks
@@ -8,13 +9,17 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import  AsyncSession
 from backend.cache.repository import cache_load_url
+from backend.url_shortener.circuit_breaker import CircuitBreaker
 from backend.url_shortener.dependencies import validate_batch_payload, validate_payload
+from backend.url_shortener.utils import general_retry, make_attempt, on_retry_log
 from .repository import del_scode, get_urls, get_userid_scode, increment_stats, load_url, recent_urls, update_code_db
 from db.dependencies import get_session, get_session_factory
 from .models import  LongUrl, ShortenResponse, UpdateShortUrl
 from.services import process_url
 from datetime import datetime, timedelta
 from backend.cache._cache import cache_clear
+from sqlalchemy.exc import OperationalError
+from backend.url_shortener.circuit_breaker import db_circuit
 
 urls_router=APIRouter()
 
@@ -50,7 +55,6 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
                 except Exception as e:
                     return {"index": idx, "error": str(e)}
 
- 
     try:
         results=await asyncio.gather(*[_process_single(idx,item) for idx,item in valids_with_idx])
         print(results)
@@ -62,29 +66,46 @@ async def shorten_url(request:Request,payload:List[LongUrl]=Depends(validate_bat
 
     return {"successes": successes, "failures": failures}  
 
+
+        
 @urls_router.get("/redirect")
 async def redirect_url(short_code:str,background_tasks:BackgroundTasks,
                     password:Optional[str]=Query(None),
-                    db_session:AsyncSession=Depends(get_session)):
+                    session_factory:AsyncSession=Depends(get_session_factory)):
     
     # await cache_clear()
+    # return 
+    # async with session_factory() as session:
+    #     url=await load_url(session,short_code)
     
-    url=await cache_load_url(short_code,db_session,background_tasks)
+    #check is db circuit breaker is open or closed 
+    if not await db_circuit.allow_request():
+        state = await db_circuit.get_state()
+        retry_after = max(0, int(state["open_until"] - time.time()))
+        # short-circuit: don't hit DB
+        await db_circuit.record_failure()
+        print("hereee")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable",
+                            headers={"Retry-After": str(retry_after)})
+
+    attempt = await make_attempt(session_factory, cache_load_url,short_code, background_tasks)
+    url=await general_retry(attempt,db_circuit, (OperationalError,),on_retry_log=on_retry_log,retries=6)
 
     if url is None:
        raise HTTPException(status_code=404, detail="Code not found or deleted")
     
-    if url.password :
-        if url.password!=password:  #passwords should certainly be hashed in auth scenarios 
+    if url["password"] :
+        if url["password"]!=password:  #passwords should certainly be hashed in auth scenarios 
             raise HTTPException(status_code=403,detail="Invalid password as short code is protected")
 
 
-    if url.expiry_date and url.expiry_date< datetime.now().date():
+    if url["expiry_date"] and url["expiry_date"]< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
 
-    res=RedirectResponse(url=url.original_url,status_code=307)
+    res=RedirectResponse(url=url["original_url"],status_code=307)
     #  Kick off analytics increment after sending redirect in same thread
     background_tasks.add_task(increment_stats, short_code)
+
 
     return res
 
@@ -94,18 +115,23 @@ async def update_code(
     short_code:str,
     background_tasks:BackgroundTasks,
     patch_payload:UpdateShortUrl,
-    db_session:AsyncSession=Depends(get_session)):
+    session_factory:AsyncSession=Depends(get_session_factory)):
     user_identifier = request.state.user_identifier
     user_id=user_identifier.id 
 
-    code=await get_userid_scode(short_code,db_session)
+    async with session_factory() as db_session:
+        code=await get_userid_scode(short_code,db_session)
+
     if not code:
         raise HTTPException(status_code=404, detail="Short code not found or deleted")
     
     if code.user_id!=user_id:
         raise HTTPException(status_code=403,detail="Cannot update ,code belongs to another user")
     
-    res=await update_code_db(db_session,background_tasks,code.short_code,patch_payload.expiry_date,patch_payload.password)
+    attempt = make_attempt(session_factory, update_code_db, background_tasks,code.short_code,patch_payload.expiry_date,patch_payload.password)
+    res=await general_retry(attempt, (OperationalError,),on_retry_log=on_retry_log)
+
+    # res=await update_code_db(db_session,background_tasks,code.short_code,patch_payload.expiry_date,patch_payload.password)
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":res.password,"message":"updated short code!"}
 
 

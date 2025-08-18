@@ -1,4 +1,7 @@
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 version="v2"
 version3="v3"

@@ -25,6 +25,7 @@ class URL_SHORTENER(Base):
     deleted_at=Column(TIMESTAMP,nullable=True)
     expiry_date=Column(DATE,nullable=True)
     password=Column(String(50),nullable=True)
+    updated_at=Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
 
     user = relationship("Users", back_populates="urls")
 
@@ -47,7 +48,8 @@ class URL_SHORTENER(Base):
             "last_accessed_at":self.last_accessed_at,
             "user_id":self.user_id,
             "deleted_at":self.deleted_at,
-            "expiry_date":self.expiry_date
+            "expiry_date":self.expiry_date,
+            "updated_at":self.updated_at
         }
 
 class Users(Base):

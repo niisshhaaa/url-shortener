@@ -95,7 +95,7 @@ def create_exception_handler(detail_fn:DetailFn):
         except Exception as e:
             # Something *went wrong in handler code itself*—
             # e.g. `` was missing and got an AttributeError.
-            body = {"detail": str(e)}
+            body = {"deeetail": str(e)}
             code = status.HTTP_500_INTERNAL_SERVER_ERROR
         
         return JSONResponse(status_code=code, content=body)

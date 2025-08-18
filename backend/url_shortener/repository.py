@@ -12,17 +12,24 @@ from db.schema import URL_SHORTENER
 from db.db_connection import async_session
 
 
-async def load_url(short_code:str,session:AsyncSession):
-   
+async def load_url(session:AsyncSession,short_code:str):
+
         result = await session.execute(
            select(
             URL_SHORTENER.original_url,
             URL_SHORTENER.password,
-            URL_SHORTENER.expiry_date
+            URL_SHORTENER.expiry_date,
+            URL_SHORTENER.updated_at
             )
            .where(URL_SHORTENER.short_code == short_code,
            URL_SHORTENER.deleted_at.is_(None)))
         res=result.one_or_none()
+        res = {
+                "original_url": res.original_url,
+                "password": res.password,
+                "expiry_date": res.expiry_date,
+                "updated_at":res.updated_at 
+        }
         return res 
 
 async def get_userid_scode(scode,session):
@@ -122,8 +129,8 @@ async def update_code_db(session,background_tasks,code,expiry_date,password):
            URL_SHORTENER.deleted_at.is_(None))
     .values(expiry_date=expiry_date,
             password=password)
-    .returning(URL_SHORTENER.short_code,URL_SHORTENER.original_url,URL_SHORTENER.expiry_date,URL_SHORTENER.password)
-    )
+    .returning(URL_SHORTENER.short_code,URL_SHORTENER.original_url,URL_SHORTENER.expiry_date,URL_SHORTENER.password,URL_SHORTENER.updated_at)
+    )  #* make it to return only updated_at and original_url not now later after trying benchmarking
     result=await session.execute(stmt)
     res=result.first() 
     await session.commit()
