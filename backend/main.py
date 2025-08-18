@@ -1,4 +1,5 @@
 from typing import Set
+from backend.cache._cache import init_cas,redis_client
 from backend.common.custom_exceptions import register_exceptions
 from config.blacklist import BLACKLIST_PATH, load_blacklist
 from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware, LazyReloadBlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware, TimingMiddleware
@@ -19,12 +20,15 @@ from backend.v3.routes.url_routes import urls_v3_router
 blocked_keys: Set[str] = set()
 
 
+
 @asynccontextmanager  
 async def app_lifespan(app:FastAPI):
 
      await load_blacklist(blocked_keys)
      app.state.blocked_keys = blocked_keys
      app.state._last_mtime=BLACKLIST_PATH.stat().st_mtime
+
+     await init_cas(redis_client)
 
     #  await configure_redis()
 
