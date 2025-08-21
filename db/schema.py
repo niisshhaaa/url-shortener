@@ -91,6 +91,19 @@ class Users(Base):
         return user_dict
 
     urls=relationship("URL_SHORTENER",back_populates="user")
+    media=relationship("UserMedia", back_populates="user")
+
+
+class UserMedia(Base):
+    __tablename__ = "user_media"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("userss.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # storage key / relative path / S3 key 
+    profile_img_path = Column(String(1024), nullable=False)
+    thumbnail_img_path=Column(String(1024), nullable=True)  
+    
+    user = relationship("Users", back_populates="media")
 
 
 

@@ -10,10 +10,6 @@ HALF-OPEN: after cooldown, allow a small number of trial calls.
 If they succeed, go CLOSED and reset counters; if they fail, go back OPEN.
 """
 
-class CircuitOpenError(RuntimeError):
-    """Raised when circuit is open and calls should not be attempted."""
-    pass
-
 
 class CircuitBreaker:
     """
