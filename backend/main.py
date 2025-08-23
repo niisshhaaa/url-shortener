@@ -1,6 +1,8 @@
+import asyncio,threading
 from typing import Set
 from backend.cache._cache import init_cas,redis_client
 from backend.common.custom_exceptions import register_exceptions
+from backend.cron.thumbnails_cron import start_cron_thread
 from config.blacklist import BLACKLIST_PATH, load_blacklist
 from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware, LazyReloadBlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware, TimingMiddleware
 from db.db_connection import async_engine
@@ -16,6 +18,7 @@ from backend.url_shortener.routes import urls_router
 from backend.stats.routes import stats_router
 from backend.__init__ import version_prefix,version3_prefix
 from backend.v3.routes.url_routes import urls_v3_router
+from backend.user.routes import user_v3_router
 
 blocked_keys: Set[str] = set()
 
@@ -29,6 +32,10 @@ async def app_lifespan(app:FastAPI):
      app.state._last_mtime=BLACKLIST_PATH.stat().st_mtime
 
      await init_cas(redis_client)
+
+     # Run cron_worker in a separate thread
+     # threading.Thread(target=start_cron_thread, daemon=True).start()
+
 
     #  await configure_redis()
 
@@ -51,6 +58,7 @@ def create_app(test:bool=False):
      app.include_router(stats_router,prefix=f"{version_prefix}/stats")
 
      app.include_router(urls_v3_router,prefix=f"{version3_prefix}")
+     app.include_router(user_v3_router,prefix=f"{version3_prefix}")
 
      app.add_middleware(AuthorizationMiddleware,paths=[f"{version_prefix}/shorten/batch"])
      
@@ -61,7 +69,9 @@ def create_app(test:bool=False):
      #     app.add_middleware(ApiKeyRateLimitMiddleware)
 
      app.add_middleware(AuthenticationMiddleware, session=async_session,
-          paths=[f"{version_prefix}/shorten", f"{version_prefix}/shorten/batch",f"{version_prefix}/shorten/" ,f"{version_prefix}/urls",f"{version3_prefix}/urls"])
+          paths=[f"{version_prefix}/shorten", f"{version_prefix}/shorten/batch",
+                 f"{version_prefix}/shorten/" ,f"{version_prefix}/urls",f"{version3_prefix}/urls",
+                 f"{version3_prefix}/me/upload-profile-img"])
      # app.add_middleware(RequestLoggingMiddleware)
      app.add_middleware(TimingMiddleware)
 
@@ -70,6 +80,7 @@ def create_app(test:bool=False):
      return app
 
 app = create_app()
+
 
 
 

@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     REDIS_HOST:str
     REDIS_PORT:int
     REDIS_DB:int
+    PROFILE_IMG_PATH:str
+    THUMBNAIL_IMG_PATH:str
+    MEDIA_ROOT:str
         
     model_config=SettingsConfigDict(
         env_file=".env",
