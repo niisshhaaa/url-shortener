@@ -10,22 +10,31 @@ from sqlalchemy.exc import IntegrityError
 # select and insert (if row exists don’t insert , otherwise add)(db level lock per key )
 # select and insert (retry on integrity error)
 
+# for now only profile image exists for 1 user . there is a unique constraint on user_id fkey in user_media
 async def save_user_avatar(session, user_id: int, image_path: str,final_path:str):
-    
+    new=UserMedia(user_id=user_id, profile_img_path=image_path)
+    session.add(new)
     try:
-        session.add(UserMedia(user_id=user_id, profile_img_path=image_path))
+        # flush sends INSERT to DB so new.id is populated (but not committed)
+        await session.flush()
+        media_id = new.id
         await session.commit()
-    except IntegrityError:
+        return media_id
+    except IntegrityError:   
         await session.rollback()
         stmt = (
             update(UserMedia)
-            .where(UserMedia.user_id == user_id)
+            .where(UserMedia.user_id == user_id)    # since one user has only one profile allowed and user id fkey is unique .
             .values(
-                profile_img_path=image_path
-            )
+                profile_img_path=image_path,
+                thumbnail_img_path=None
+            ).returning(UserMedia.id)
         )
-        await session.execute(stmt)
+        res=await session.execute(stmt)
+        res=res.first()[0]
         await session.commit()
+        print(res)
+        return res
     except Exception as e:
         print("save error",e)
         final_path.unlink(missing_ok=True)

@@ -1,4 +1,6 @@
 from config.config import configSettgs
+import asyncio
+from typing import Any, Dict
 
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024   # 5 MB limit (adjust)
 MEDIA_ROOT = configSettgs.MEDIA_ROOT
@@ -10,3 +12,7 @@ THUMB_ROOT_PATH = configSettgs.THUMBNAIL_IMG_PATH
 BATCH_SIZE = 20
 THUMB_SIZE = (300, 300)
 PROCESSING_MARKER = "__PROCESSING__"
+
+
+tasks_queue: asyncio.Queue[Dict[str, Any]] = None
+tasks_executor: asyncio.Task | None = None

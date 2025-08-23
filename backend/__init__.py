@@ -1,7 +1,7 @@
+
 import logging
 
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 version="v2"
 version3="v3"
@@ -9,13 +9,6 @@ version3="v3"
 version_prefix=f"/api/{version}"
 
 version3_prefix=f"/api/{version3}"
-
-
-
-    
-
-
-
 
 
 

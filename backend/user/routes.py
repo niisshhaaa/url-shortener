@@ -10,6 +10,8 @@ from backend.user.utils import _stream_save_to_disk_sync,_verify_image_sync, use
 from db.dependencies import get_session
 from PIL import UnidentifiedImageError
 from config.config import configSettgs
+from backend.__init__ import logger 
+from backend.user import constants
 
 SECRET_KEY=configSettgs.SUPER_SECRET_KEY
 
@@ -72,7 +74,18 @@ async def upload_profile_image(request:Request,file: UploadFile = File(), sessio
     # store relative path in DB: 
     rel_path = f"{user_specific_path}/{final_name}"
     
-    await save_user_avatar(session, user_identifier.id, rel_path,final_path)
+    media_id:int=await save_user_avatar(session, user_identifier.id, rel_path,final_path)
+    if not media_id or type(media_id) is not int:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save avatar")
+    
+    task={"user_id": user_identifier.id, "media_id": media_id,"rel_path":rel_path}
+    try:
+        constants.tasks_queue.put_nowait(task)
+        logger.info("[upload] enqueued thumbnail task for user=%s row=%s", user_identifier.id, media_id)
+    except asyncio.QueueFull as e:
+        print("Failed to enqueue task", e)
+        logger.error("[upload] queue full ,cannot enqueue")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to process upload")
 
     return {"message": "uploaded", "image_path": rel_path}
 

@@ -1,8 +1,9 @@
 import asyncio,threading
-from typing import Set
+from typing import Any, Dict, Set
 from backend.cache._cache import init_cas,redis_client
 from backend.common.custom_exceptions import register_exceptions
 from backend.cron.thumbnails_cron import start_cron_thread
+from backend.user.background_worker import thumbnail_worker_loop
 from config.blacklist import BLACKLIST_PATH, load_blacklist
 from middlewares.middlewares import AuthorizationMiddleware, BlacklistMiddleware, LazyReloadBlacklistMiddleware, RequestLoggingMiddleware,AuthenticationMiddleware, TimingMiddleware
 from db.db_connection import async_engine
@@ -19,19 +20,21 @@ from backend.stats.routes import stats_router
 from backend.__init__ import version_prefix,version3_prefix
 from backend.v3.routes.url_routes import urls_v3_router
 from backend.user.routes import user_v3_router
+from backend.user import constants
 
 blocked_keys: Set[str] = set()
 
 
-
 @asynccontextmanager  
 async def app_lifespan(app:FastAPI):
+     # await load_blacklist(blocked_keys)
+     # app.state.blocked_keys = blocked_keys
+     # app.state._last_mtime=BLACKLIST_PATH.stat().st_mtime
 
-     await load_blacklist(blocked_keys)
-     app.state.blocked_keys = blocked_keys
-     app.state._last_mtime=BLACKLIST_PATH.stat().st_mtime
+     # await init_cas(redis_client)
 
-     await init_cas(redis_client)
+     constants.tasks_queue = asyncio.Queue()
+     constants.tasks_executor = asyncio.create_task(thumbnail_worker_loop())
 
      # Run cron_worker in a separate thread
      # threading.Thread(target=start_cron_thread, daemon=True).start()
