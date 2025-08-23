@@ -109,6 +109,7 @@ async def fallback_handler(request: Request, exc: Exception):
         "detail": getattr(exc, "detail", "nternal Server Error"),
         "error_type": type(exc).__name__
     }
+    
     code = getattr(exc, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
     print("falback exception")
     return JSONResponse(status_code=code, content=body)
